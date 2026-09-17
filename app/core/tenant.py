@@ -57,3 +57,23 @@ def active_devices_for_self(db: Session, user: User) -> list[Device]:
         .filter(Device.user_id == user.id, Device.revoked.is_(False))
         .all()
     )
+
+
+def events_for_team(db: Session, user: User) -> Query:
+    """Events for the calling supervisor's team, inside their tenant.
+
+    Preconditions: `user.team_id` must be non-null. The endpoint checks
+    this and returns 403 before calling the helper.
+
+    The tenant filter is redundant if team ids are globally unique, but
+    this code does not assume that. Two tenants may both have a team
+    with id 1; the join keeps them separate.
+    """
+    return (
+        db.query(AttendanceEvent)
+        .join(User, AttendanceEvent.user_id == User.id)
+        .filter(
+            User.tenant_id == user.tenant_id,
+            User.team_id == user.team_id,
+        )
+    )

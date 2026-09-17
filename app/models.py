@@ -58,6 +58,10 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     # role: employee | supervisor | hr_ops | security_admin | sys_admin
     role = Column(String(32), nullable=False, default="employee")
+    # Team membership for supervisors. Nullable for employees and for
+    # roles that do not use team scope. A "team" is an integer scoped
+    # inside a tenant; a proper Team model arrives in S7.
+    team_id = Column(Integer, nullable=True, index=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

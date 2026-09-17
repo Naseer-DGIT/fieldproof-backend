@@ -11,6 +11,7 @@ Every database access in `app/` and whether it enforces tenant scope.
 | POST /attendance/events | `_active_device(user)` → `Device.user_id == user.id` | user from JWT | yes |
 | GET /attendance/events | `AttendanceEvent.user_id == user.id` | user from JWT | yes |
 | GET /attendance/events/{event_id} | `get_own_event_or_404(db, user, event_id)` | id + owner in one query | yes |
+| GET /attendance/team/events | `events_for_team(db, user)` | `User.tenant_id` AND `User.team_id` in one query | yes |
 | GET /attendance/admin/summary | `User.tenant_id == user.tenant_id` | tenant from JWT | yes |
 
 ## Rules
@@ -39,3 +40,34 @@ Day 3 range.
 Rule for later days: run `git status --short` before `git tag`. If
 anything is uncommitted, commit it first. A tag promises a reproducible
 state.
+
+## Day 4 — supervisor scope
+
+Added `team_id` (nullable integer) to `users`. Teams are scoped inside
+a tenant: two tenants may both have team 1001, and they are different
+teams.
+
+Added `events_for_team(db, user)` in `app/core/tenant.py`. It filters
+on `User.tenant_id == user.tenant_id AND User.team_id == user.team_id`
+in a single query.
+
+Added `GET /attendance/team/events`:
+- supervisor with a team → team-scoped list
+- supervisor with no team → 403
+- any other role → 403
+- anonymous → 401
+
+Tests in `tests/test_supervisor_scope.py`:
+- supervisor A sees team A's events, not team B's
+- supervisor B sees team B's events, not team A's
+- supervisor with no team → 403
+- employee → 403
+- supervisor in a different tenant with the same team id → empty
+- anonymous → 401
+
+## Day 4 — rule for scope additions
+
+Every new scope (self, team, tenant, org) gets:
+1. A helper in `app/core/tenant.py` with the scope filter in one query
+2. A row in this audit
+3. A test that proves the boundary in both directions

@@ -22,8 +22,18 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.not_found import get_own_event_or_404
-from app.core.rbac import ROLE_HR_OPS, ROLE_SYS_ADMIN, require_role
-from app.core.tenant import active_device_for_self, events_for_self, events_for_tenant
+from app.core.rbac import (
+    ROLE_HR_OPS,
+    ROLE_SUPERVISOR,
+    ROLE_SYS_ADMIN,
+    require_role,
+)
+from app.core.tenant import (
+    active_device_for_self,
+    events_for_self,
+    events_for_team,
+    events_for_tenant,
+)
 from app.core.db import get_db
 from app.models import AttendanceEvent, Device, User
 from app.schemas import AttendanceEventIn, AttendanceEventOut
@@ -212,6 +222,40 @@ def get_event(
         idempotency_key=event.idempotency_key,
         server_received_at=event.server_received_at.isoformat(),
     )
+
+
+@router.get("/team/events", response_model=list[AttendanceEventOut])
+def team_events(
+    user: User = Depends(require_role(ROLE_SUPERVISOR)),
+    db: Session = Depends(get_db),
+) -> list[AttendanceEventOut]:
+    """Attendance events for the calling supervisor's team.
+
+    Scoped to:
+      - the caller's tenant (User.tenant_id)
+      - the caller's team (User.team_id)
+
+    A supervisor with no team_id assigned gets 403 — the account is
+    misconfigured, not unauthorized to see a resource.
+    """
+    if user.team_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Supervisor is not assigned to a team",
+        )
+
+    rows = events_for_team(db, user).order_by(AttendanceEvent.id.asc()).all()
+    return [
+        AttendanceEventOut(
+            id=r.id,
+            event_id=r.event_id,
+            event_type=r.event_type,
+            previous_event_hash=r.previous_event_hash,
+            idempotency_key=r.idempotency_key,
+            server_received_at=r.server_received_at.isoformat(),
+        )
+        for r in rows
+    ]
 
 
 @router.get("/admin/summary")
