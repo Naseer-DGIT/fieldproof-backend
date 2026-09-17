@@ -29,3 +29,13 @@ Every database access in `app/` and whether it enforces tenant scope.
 - No supervisor-scoped read path yet. When one is added, the query must
   filter by `User.tenant_id == user.tenant_id` **and** the supervisor's
   team/site scope. Day 3 does not cover this; it is S7 work.
+
+## Day 3 — note on tagging
+
+The `s3-day3` tag was moved after the initial push because the audit
+doc commit landed before the code commit. Both are now in the same
+Day 3 range.
+
+Rule for later days: run `git status --short` before `git tag`. If
+anything is uncommitted, commit it first. A tag promises a reproducible
+state.
