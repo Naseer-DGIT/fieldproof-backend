@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.not_found import get_own_event_or_404
 from app.core.rbac import ROLE_HR_OPS, ROLE_SYS_ADMIN, require_role
 from app.core.tenant import active_device_for_self, events_for_self, events_for_tenant
 from app.core.db import get_db
@@ -189,6 +190,28 @@ def list_events(
         )
         for r in rows
     ]
+
+
+@router.get("/events/{event_id}", response_model=AttendanceEventOut)
+def get_event(
+    event_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AttendanceEventOut:
+    """Fetch one event the caller owns.
+
+    Returns 404 whether the event does not exist, belongs to another
+    user, or belongs to another tenant. See `app/core/not_found.py`.
+    """
+    event = get_own_event_or_404(db, user, event_id)
+    return AttendanceEventOut(
+        id=event.id,
+        event_id=event.event_id,
+        event_type=event.event_type,
+        previous_event_hash=event.previous_event_hash,
+        idempotency_key=event.idempotency_key,
+        server_received_at=event.server_received_at.isoformat(),
+    )
 
 
 @router.get("/admin/summary")

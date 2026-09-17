@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
-from app.core.tenant import active_device_for_self, devices_for_self
+from app.core.tenant import (
+    active_device_for_self,
+    active_devices_for_self,
+    devices_for_self,
+)
 from app.models import Device, User
 from app.schemas import DeviceRegisterRequest, DeviceResponse
 
