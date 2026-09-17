@@ -98,10 +98,12 @@ class Device(Base):
 class AttendanceEvent(Base):
     __tablename__ = "attendance_events"
     __table_args__ = (
+        UniqueConstraint("event_id", name="uq_attendance_event_id"),
         UniqueConstraint("idempotency_key", name="uq_attendance_idempotency"),
     )
 
     id = Column(Integer, primary_key=True)
+    event_id = Column(String(64), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
                      nullable=False, index=True)
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="RESTRICT"),
