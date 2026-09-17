@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
+from app.core.tenant import active_device_for_self, devices_for_self
 from app.models import Device, User
 from app.schemas import DeviceRegisterRequest, DeviceResponse
 
@@ -28,9 +29,8 @@ def register_device(
     must not be silently replaced for a different user.
     """
     existing = (
-        db.query(Device)
+        devices_for_self(db, user)
         .filter(
-            Device.user_id == user.id,
             Device.public_key == body.public_key,
             Device.revoked.is_(False),
         )
@@ -42,11 +42,7 @@ def register_device(
     # A user may have at most one active device in MVP. Re-registering
     # replaces the previous binding (revoked, not deleted) so the audit
     # trail is preserved.
-    previous = (
-        db.query(Device)
-        .filter(Device.user_id == user.id, Device.revoked.is_(False))
-        .all()
-    )
+    previous = active_devices_for_self(db, user)
     for dev in previous:
         dev.revoked = True
 
@@ -68,11 +64,7 @@ def current_device(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Device:
-    device = (
-        db.query(Device)
-        .filter(Device.user_id == user.id, Device.revoked.is_(False))
-        .first()
-    )
+    device = active_device_for_self(db, user)
     if device is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

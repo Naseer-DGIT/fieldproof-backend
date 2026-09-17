@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.rbac import ROLE_HR_OPS, ROLE_SYS_ADMIN, require_role
+from app.core.tenant import active_device_for_self, events_for_self, events_for_tenant
 from app.core.db import get_db
 from app.models import AttendanceEvent, Device, User
 from app.schemas import AttendanceEventIn, AttendanceEventOut
@@ -31,11 +32,7 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 
 def _active_device(db: Session, user: User) -> Device:
-    device = (
-        db.query(Device)
-        .filter(Device.user_id == user.id, Device.revoked.is_(False))
-        .first()
-    )
+    device = active_device_for_self(db, user)
     if device is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -180,12 +177,7 @@ def list_events(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[AttendanceEventOut]:
-    rows = (
-        db.query(AttendanceEvent)
-        .filter(AttendanceEvent.user_id == user.id)
-        .order_by(AttendanceEvent.id.asc())
-        .all()
-    )
+    rows = events_for_self(db, user).order_by(AttendanceEvent.id.asc()).all()
     return [
         AttendanceEventOut(
             id=r.id,
@@ -209,12 +201,7 @@ def admin_summary(
     Requires hr_ops or sys_admin. The tenant filter is derived from the
     authenticated principal, never from a query parameter.
     """
-    total = (
-        db.query(AttendanceEvent)
-        .join(User, AttendanceEvent.user_id == User.id)
-        .filter(User.tenant_id == user.tenant_id)
-        .count()
-    )
+    total = events_for_tenant(db, user).count()
     return {
         "tenant_id": user.tenant_id,
         "event_count": total,
