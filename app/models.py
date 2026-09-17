@@ -153,6 +153,11 @@ class AuthorizationEvent(Base):
     reason = Column(String(128), nullable=False)
     method = Column(String(8), nullable=False)
     endpoint = Column(String(128), nullable=False)
+    # Hash chain. `previous_hash` is the `self_hash` of the row before
+    # this one. The first row uses "GENESIS". `self_hash` is
+    # SHA-256(previous_hash || canonical fields). See app/services/audit.py.
+    previous_hash = Column(String(64), nullable=False, default="GENESIS")
+    self_hash = Column(String(64), nullable=False, default="")
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

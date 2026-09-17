@@ -111,3 +111,23 @@ Tests in `tests/test_audit_log.py`:
 - 404-not-403 → one row with reason "Event not found"
 - 200 → no row
 - stale-token 401 → one row
+
+## Day 7 — /audit/verify is cross-tenant by design
+
+`GET /api/v1/audit/verify` is sys_admin-only. It walks the entire
+authorization_events table without a tenant filter — that is the point:
+a chain break must be visible across tenants, not hidden per tenant.
+
+It returns metadata only:
+- `rows_checked` (integer)
+- `breaks` (list of `{id, reason}` for the first mismatch)
+- `ok` (boolean)
+
+It does not return row contents: no `user_id`, no `tenant_id`, no
+`reason`, no `endpoint`. There is no per-tenant data to leak, so there
+is no tenant filter to audit.
+
+`tests/test_endpoint_hygiene.py` allowlists this endpoint via
+`ALLOWED_UNGATED`. Any change that makes this endpoint return row
+contents must remove the allowlist entry and add a row to the table
+above.

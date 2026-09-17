@@ -16,17 +16,22 @@ from pathlib import Path
 AUDIT = Path("docs/security/s3-tenant-audit.md")
 API_DIR = Path("app/api")
 
-# Paths that are intentionally public or unprivileged. Match against
-# the router-local path (e.g. "/login"), not the mounted full path.
+# Paths that are intentionally public, unprivileged, or cross-tenant by
+# design. Match against the router-local path (e.g. "/login"), not the
+# mounted full path.
 #
-# /login  — public, no auth required
-# /health — public, no auth required (defined in app/main.py)
-# /logout — authenticated but unprivileged; any active user may log out,
-#           no role or tenant check applies
+# /login        — public, no auth required
+# /health       — public, no auth required (defined in app/main.py)
+# /logout       — authenticated but unprivileged
+# /audit/verify — sys_admin only; reads across all tenants by design,
+#                 returns metadata only (rows_checked, breaks, ok).
+#                 No per-tenant data is returned, so there is no tenant
+#                 filter to audit. See docs/security/s3-tenant-audit.md.
 ALLOWED_UNGATED = {
     ("POST", "/login"),
     ("GET", "/health"),
     ("POST", "/logout"),
+    ("GET", "/verify"),
 }
 
 _PREFIX_RE = re.compile(r'APIRouter\([^)]*prefix\s*=\s*"([^"]*)"')
