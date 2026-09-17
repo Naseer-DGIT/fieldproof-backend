@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from app.models import User
 
 
 def get_current_user(
+    request: Request,
     authorization: str | None = Header(default=None, alias="Authorization"),
     db: Session = Depends(get_db),
 ) -> User:
@@ -59,5 +60,9 @@ def get_current_user(
             detail="Token is stale; please sign in again",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Expose the principal to the audit handler without another DB read.
+    request.state.user_id = user.id
+    request.state.tenant_id = user.tenant_id
 
     return user

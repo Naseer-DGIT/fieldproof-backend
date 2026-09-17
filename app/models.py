@@ -131,3 +131,31 @@ class AttendanceEvent(Base):
 
     user = relationship("User", back_populates="events")
     device = relationship("Device", back_populates="events")
+
+
+class AuthorizationEvent(Base):
+    """Audit trail for denied requests.
+
+    One row per 401, 403, or 404-not-403 response. No PII, no request
+    body, no headers. See ADR-0003 and DATA_CLASSIFICATION.md.
+
+    `reason` is the human-readable `detail` from the HTTPException.
+    `user_id` and `tenant_id` are null when the caller was not
+    authenticated (401).
+    """
+
+    __tablename__ = "authorization_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    status_code = Column(Integer, nullable=False)
+    reason = Column(String(128), nullable=False)
+    method = Column(String(8), nullable=False)
+    endpoint = Column(String(128), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )

@@ -86,3 +86,28 @@ when they differ. See ADR-0003.
 Tests:
 - `tests/test_role_refresh.py` — 4 tests
 - `tests/test_supervisor_idor.py` — 4 tests
+
+## Day 6 — authorization audit log
+
+Added `authorization_events` table. One row per 401, 403, and 404.
+Columns: `user_id`, `tenant_id`, `status_code`, `reason`, `method`,
+`endpoint`, `created_at`.
+
+No PII. No request body, query string, headers, or IP. The table
+answers "who was denied what, and why" — nothing else.
+
+Wired via a FastAPI `HTTPException` handler in `app/main.py`. The
+handler calls `record_denial`, then returns the same response FastAPI
+would have returned. A failure to write the audit row is logged and
+swallowed; it never changes what the caller sees.
+
+`get_current_user` now sets `request.state.user_id` and
+`request.state.tenant_id` after resolving the principal. The handler
+reads those without a second DB read.
+
+Tests in `tests/test_audit_log.py`:
+- 401 without a token → one row, null user
+- 403 with a token → one row with user and tenant
+- 404-not-403 → one row with reason "Event not found"
+- 200 → no row
+- stale-token 401 → one row
