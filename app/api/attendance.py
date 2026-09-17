@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.rbac import ROLE_HR_OPS, ROLE_SYS_ADMIN, require_role
 from app.core.db import get_db
 from app.models import AttendanceEvent, Device, User
 from app.schemas import AttendanceEventIn, AttendanceEventOut
@@ -196,3 +197,26 @@ def list_events(
         )
         for r in rows
     ]
+
+
+@router.get("/admin/summary")
+def admin_summary(
+    user: User = Depends(require_role(ROLE_HR_OPS, ROLE_SYS_ADMIN)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Counts of events in the caller's tenant.
+
+    Requires hr_ops or sys_admin. The tenant filter is derived from the
+    authenticated principal, never from a query parameter.
+    """
+    total = (
+        db.query(AttendanceEvent)
+        .join(User, AttendanceEvent.user_id == User.id)
+        .filter(User.tenant_id == user.tenant_id)
+        .count()
+    )
+    return {
+        "tenant_id": user.tenant_id,
+        "event_count": total,
+        "generated_by": user.email,
+    }
