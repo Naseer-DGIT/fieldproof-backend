@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -7,6 +7,7 @@ class Settings:
     environment: str
     database_url: str
     cors_origins: list[str]
+    jwt_secret: str
 
     @property
     def is_prod(self) -> bool:
@@ -23,7 +24,13 @@ def _load() -> Settings:
         "CORS_ORIGINS",
         "http://localhost:3000,http://10.0.2.2:8000",
     ).split(",")
-    return Settings(environment=env, database_url=db_url, cors_origins=origins)
+    jwt_secret = os.getenv("JWT_SECRET", "dev-only-change-in-prod-and-load-from-kms")
+    return Settings(
+        environment=env,
+        database_url=db_url,
+        cors_origins=origins,
+        jwt_secret=jwt_secret,
+    )
 
 
 settings = _load()
