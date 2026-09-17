@@ -33,3 +33,21 @@ migrated to `require_role` or `require_tenant`.
   - unauthenticated → 401
 - Existing endpoints unchanged. They still require only authentication.
   Day 2 audits tenant isolation on the data path.
+
+## Day 1 fix — 401 for missing credentials
+
+`get_current_user` initially declared `Authorization` as a required
+header (`Header(...)`). FastAPI ran header validation before the
+dependency body and returned 422 for any request without the header.
+
+Changed to `Header(default=None)` and added an explicit 401 with a
+`WWW-Authenticate: Bearer` response header. That is the correct
+semantic per RFC 7235 §3.1 and prevents the endpoint from leaking
+that it expects certain input.
+
+Verified:
+- No header        → 401
+- Malformed header → 401
+- Invalid token    → 401
+- Valid token, wrong role → 403
+- Valid token, right role → 200
