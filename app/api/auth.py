@@ -33,6 +33,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
         subject=str(user.id),
         tenant_id=user.tenant_id,
         role=user.role,
+        role_version=user.role_version,
     )
     return TokenResponse(
         access_token=token,

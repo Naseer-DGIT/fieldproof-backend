@@ -12,6 +12,7 @@ Every database access in `app/` and whether it enforces tenant scope.
 | GET /attendance/events | `AttendanceEvent.user_id == user.id` | user from JWT | yes |
 | GET /attendance/events/{event_id} | `get_own_event_or_404(db, user, event_id)` | id + owner in one query | yes |
 | GET /attendance/team/events | `events_for_team(db, user)` | `User.tenant_id` AND `User.team_id` in one query | yes |
+| GET /attendance/team/events/{event_id} | `get_team_event_or_404(db, user, event_id)` | id + tenant + team in one query | yes |
 | GET /attendance/admin/summary | `User.tenant_id == user.tenant_id` | tenant from JWT | yes |
 
 ## Rules
@@ -71,3 +72,17 @@ Every new scope (self, team, tenant, org) gets:
 1. A helper in `app/core/tenant.py` with the scope filter in one query
 2. A row in this audit
 3. A test that proves the boundary in both directions
+
+## Day 5 — supervisor resource IDs and role refresh
+
+Added `GET /attendance/team/events/{event_id}` with
+`get_team_event_or_404`. Returns 404 for events in another team, in
+another tenant, or that do not exist. Bodies identical.
+
+Added `role_version` column to `users`. JWT now carries `rv`. Every
+authenticated request compares the claim to the row and returns 401
+when they differ. See ADR-0003.
+
+Tests:
+- `tests/test_role_refresh.py` — 4 tests
+- `tests/test_supervisor_idor.py` — 4 tests

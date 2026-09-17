@@ -62,6 +62,10 @@ class User(Base):
     # roles that do not use team scope. A "team" is an integer scoped
     # inside a tenant; a proper Team model arrives in S7.
     team_id = Column(Integer, nullable=True, index=True)
+    # Incremented whenever role, tenant_id, or is_active changes.
+    # Included in the JWT as `rv` and checked on every request.
+    # See ADR-0003.
+    role_version = Column(Integer, nullable=False, default=0, server_default="0")
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

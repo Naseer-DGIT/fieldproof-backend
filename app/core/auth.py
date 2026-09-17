@@ -48,4 +48,16 @@ def get_current_user(
             detail="User not found or inactive",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Role-claim refresh (ADR-0003). The token carries the role_version
+    # that was current when it was issued. If the row has moved on, the
+    # token is stale and the caller must log in again.
+    claim_rv = payload.get("rv")
+    if claim_rv is None or int(claim_rv) != user.role_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is stale; please sign in again",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user

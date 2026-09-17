@@ -21,7 +21,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
-from app.core.not_found import get_own_event_or_404
+from app.core.not_found import (
+    get_own_event_or_404,
+    get_team_event_or_404,
+)
 from app.core.rbac import (
     ROLE_HR_OPS,
     ROLE_SUPERVISOR,
@@ -256,6 +259,35 @@ def team_events(
         )
         for r in rows
     ]
+
+
+@router.get("/team/events/{event_id}", response_model=AttendanceEventOut)
+def get_team_event(
+    event_id: str,
+    user: User = Depends(require_role(ROLE_SUPERVISOR)),
+    db: Session = Depends(get_db),
+) -> AttendanceEventOut:
+    """Fetch one event inside the caller's team.
+
+    Returns 404 whether the event does not exist, belongs to another
+    team, or belongs to another tenant. Identical body in all three
+    cases.
+    """
+    if user.team_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Supervisor is not assigned to a team",
+        )
+
+    event = get_team_event_or_404(db, user, event_id)
+    return AttendanceEventOut(
+        id=event.id,
+        event_id=event.event_id,
+        event_type=event.event_type,
+        previous_event_hash=event.previous_event_hash,
+        idempotency_key=event.idempotency_key,
+        server_received_at=event.server_received_at.isoformat(),
+    )
 
 
 @router.get("/admin/summary")

@@ -41,3 +41,34 @@ def get_own_event_or_404(
             detail="Event not found",
         )
     return event
+
+
+def get_team_event_or_404(
+    db,
+    user: User,
+    event_id: str,
+) -> AttendanceEvent:
+    """Return an event in the caller's team, or raise 404.
+
+    The caller must be a supervisor with `team_id` set. The endpoint
+    checks the role and team; this helper only resolves the resource.
+
+    Returns 404 whether the event does not exist, belongs to another
+    team, or belongs to another tenant. Single query, single message.
+    """
+    event = (
+        db.query(AttendanceEvent)
+        .join(User, AttendanceEvent.user_id == User.id)
+        .filter(
+            AttendanceEvent.event_id == event_id,
+            User.tenant_id == user.tenant_id,
+            User.team_id == user.team_id,
+        )
+        .first()
+    )
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+    return event
