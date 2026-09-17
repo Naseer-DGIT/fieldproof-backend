@@ -10,6 +10,7 @@ Every database access in `app/` and whether it enforces tenant scope.
 | GET /devices/me | `Device.user_id == user.id` | user from JWT | yes |
 | POST /attendance/events | `_active_device(user)` → `Device.user_id == user.id` | user from JWT | yes |
 | GET /attendance/events | `AttendanceEvent.user_id == user.id` | user from JWT | yes |
+| GET /attendance/events/{event_id} | `get_own_event_or_404(db, user, event_id)` | id + owner in one query | yes |
 | GET /attendance/admin/summary | `User.tenant_id == user.tenant_id` | tenant from JWT | yes |
 
 ## Rules
