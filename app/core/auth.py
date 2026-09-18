@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
 
@@ -8,21 +8,38 @@ from app.models import User
 
 
 def get_current_user(
-    authorization: str = Header(..., alias="Authorization"),
+    request: Request,
+    authorization: str | None = Header(default=None, alias="Authorization"),
     db: Session = Depends(get_db),
 ) -> User:
-    if not authorization.startswith("Bearer "):
+    """Resolve the authenticated principal from the Authorization header.
+
+    The header is declared optional so FastAPI does not pre-empt the
+    check with a 422. A missing or malformed header is a 401, which is
+    the correct semantic for "no credentials supplied" (RFC 7235 §3.1).
+    """
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or malformed Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+
     token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or malformed Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = decode_access_token(token)
     except PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user = db.get(User, int(payload["sub"]))
@@ -30,5 +47,22 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Role-claim refresh (ADR-0003). The token carries the role_version
+    # that was current when it was issued. If the row has moved on, the
+    # token is stale and the caller must log in again.
+    claim_rv = payload.get("rv")
+    if claim_rv is None or int(claim_rv) != user.role_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is stale; please sign in again",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Expose the principal to the audit handler without another DB read.
+    request.state.user_id = user.id
+    request.state.tenant_id = user.tenant_id
+
     return user

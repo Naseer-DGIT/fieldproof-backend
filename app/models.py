@@ -58,6 +58,14 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     # role: employee | supervisor | hr_ops | security_admin | sys_admin
     role = Column(String(32), nullable=False, default="employee")
+    # Team membership for supervisors. Nullable for employees and for
+    # roles that do not use team scope. A "team" is an integer scoped
+    # inside a tenant; a proper Team model arrives in S7.
+    team_id = Column(Integer, nullable=True, index=True)
+    # Incremented whenever role, tenant_id, or is_active changes.
+    # Included in the JWT as `rv` and checked on every request.
+    # See ADR-0003.
+    role_version = Column(Integer, nullable=False, default=0, server_default="0")
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -123,3 +131,36 @@ class AttendanceEvent(Base):
 
     user = relationship("User", back_populates="events")
     device = relationship("Device", back_populates="events")
+
+
+class AuthorizationEvent(Base):
+    """Audit trail for denied requests.
+
+    One row per 401, 403, or 404-not-403 response. No PII, no request
+    body, no headers. See ADR-0003 and DATA_CLASSIFICATION.md.
+
+    `reason` is the human-readable `detail` from the HTTPException.
+    `user_id` and `tenant_id` are null when the caller was not
+    authenticated (401).
+    """
+
+    __tablename__ = "authorization_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    status_code = Column(Integer, nullable=False)
+    reason = Column(String(128), nullable=False)
+    method = Column(String(8), nullable=False)
+    endpoint = Column(String(128), nullable=False)
+    # Hash chain. `previous_hash` is the `self_hash` of the row before
+    # this one. The first row uses "GENESIS". `self_hash` is
+    # SHA-256(previous_hash || canonical fields). See app/services/audit.py.
+    previous_hash = Column(String(64), nullable=False, default="GENESIS")
+    self_hash = Column(String(64), nullable=False, default="")
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )

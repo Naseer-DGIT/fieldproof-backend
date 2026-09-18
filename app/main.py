@@ -1,14 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.attendance import router as attendance_router
+from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.devices import router as devices_router
 from app.core.config import settings
+from app.services.audit import record_denial
 
 app = FastAPI(
     title="FieldProof API",
-    version="0.2.0",
+    version="0.3.0",
     docs_url="/docs" if not settings.is_prod else None,
     redoc_url=None,
 )
@@ -21,9 +24,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(HTTPException)
+async def audit_http_exception_handler(
+    request: Request,
+    exc: HTTPException,
+) -> JSONResponse:
+    """Record every 401/403/404 decision, then respond normally.
+
+    The response body and status code are unchanged from FastAPI's
+    default. The only addition is the audit row.
+    """
+    record_denial(request, exc.status_code, str(exc.detail))
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None),
+    )
+
+
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(devices_router, prefix="/api/v1")
 app.include_router(attendance_router, prefix="/api/v1")
+app.include_router(audit_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["meta"])

@@ -19,12 +19,18 @@ def verify_password(plain: str, hashed: str) -> bool:
     return _pwd.verify(plain, hashed)
 
 
-def create_access_token(subject: str, tenant_id: int, role: str) -> str:
+def create_access_token(
+    subject: str,
+    tenant_id: int,
+    role: str,
+    role_version: int,
+) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "tenant": tenant_id,
         "role": role,
+        "rv": role_version,
         "iat": int(now.timestamp()),
         "exp": int((now + ACCESS_TOKEN_TTL).timestamp()),
     }

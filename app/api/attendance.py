@@ -21,6 +21,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.not_found import (
+    get_own_event_or_404,
+    get_team_event_or_404,
+)
+from app.core.rbac import (
+    ROLE_HR_OPS,
+    ROLE_SUPERVISOR,
+    ROLE_SYS_ADMIN,
+    require_role,
+)
+from app.core.tenant import (
+    active_device_for_self,
+    events_for_self,
+    events_for_team,
+    events_for_tenant,
+)
 from app.core.db import get_db
 from app.models import AttendanceEvent, Device, User
 from app.schemas import AttendanceEventIn, AttendanceEventOut
@@ -30,11 +46,7 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 
 def _active_device(db: Session, user: User) -> Device:
-    device = (
-        db.query(Device)
-        .filter(Device.user_id == user.id, Device.revoked.is_(False))
-        .first()
-    )
+    device = active_device_for_self(db, user)
     if device is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -179,12 +191,7 @@ def list_events(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[AttendanceEventOut]:
-    rows = (
-        db.query(AttendanceEvent)
-        .filter(AttendanceEvent.user_id == user.id)
-        .order_by(AttendanceEvent.id.asc())
-        .all()
-    )
+    rows = events_for_self(db, user).order_by(AttendanceEvent.id.asc()).all()
     return [
         AttendanceEventOut(
             id=r.id,
@@ -196,3 +203,106 @@ def list_events(
         )
         for r in rows
     ]
+
+
+@router.get("/events/{event_id}", response_model=AttendanceEventOut)
+def get_event(
+    event_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AttendanceEventOut:
+    """Fetch one event the caller owns.
+
+    Returns 404 whether the event does not exist, belongs to another
+    user, or belongs to another tenant. See `app/core/not_found.py`.
+    """
+    event = get_own_event_or_404(db, user, event_id)
+    return AttendanceEventOut(
+        id=event.id,
+        event_id=event.event_id,
+        event_type=event.event_type,
+        previous_event_hash=event.previous_event_hash,
+        idempotency_key=event.idempotency_key,
+        server_received_at=event.server_received_at.isoformat(),
+    )
+
+
+@router.get("/team/events", response_model=list[AttendanceEventOut])
+def team_events(
+    user: User = Depends(require_role(ROLE_SUPERVISOR)),
+    db: Session = Depends(get_db),
+) -> list[AttendanceEventOut]:
+    """Attendance events for the calling supervisor's team.
+
+    Scoped to:
+      - the caller's tenant (User.tenant_id)
+      - the caller's team (User.team_id)
+
+    A supervisor with no team_id assigned gets 403 — the account is
+    misconfigured, not unauthorized to see a resource.
+    """
+    if user.team_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Supervisor is not assigned to a team",
+        )
+
+    rows = events_for_team(db, user).order_by(AttendanceEvent.id.asc()).all()
+    return [
+        AttendanceEventOut(
+            id=r.id,
+            event_id=r.event_id,
+            event_type=r.event_type,
+            previous_event_hash=r.previous_event_hash,
+            idempotency_key=r.idempotency_key,
+            server_received_at=r.server_received_at.isoformat(),
+        )
+        for r in rows
+    ]
+
+
+@router.get("/team/events/{event_id}", response_model=AttendanceEventOut)
+def get_team_event(
+    event_id: str,
+    user: User = Depends(require_role(ROLE_SUPERVISOR)),
+    db: Session = Depends(get_db),
+) -> AttendanceEventOut:
+    """Fetch one event inside the caller's team.
+
+    Returns 404 whether the event does not exist, belongs to another
+    team, or belongs to another tenant. Identical body in all three
+    cases.
+    """
+    if user.team_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Supervisor is not assigned to a team",
+        )
+
+    event = get_team_event_or_404(db, user, event_id)
+    return AttendanceEventOut(
+        id=event.id,
+        event_id=event.event_id,
+        event_type=event.event_type,
+        previous_event_hash=event.previous_event_hash,
+        idempotency_key=event.idempotency_key,
+        server_received_at=event.server_received_at.isoformat(),
+    )
+
+
+@router.get("/admin/summary")
+def admin_summary(
+    user: User = Depends(require_role(ROLE_HR_OPS, ROLE_SYS_ADMIN)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Counts of events in the caller's tenant.
+
+    Requires hr_ops or sys_admin. The tenant filter is derived from the
+    authenticated principal, never from a query parameter.
+    """
+    total = events_for_tenant(db, user).count()
+    return {
+        "tenant_id": user.tenant_id,
+        "event_count": total,
+        "generated_by": user.email,
+    }
