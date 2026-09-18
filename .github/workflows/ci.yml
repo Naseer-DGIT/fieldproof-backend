@@ -48,7 +48,7 @@ jobs:
           pip install pytest semgrep
 
       - name: Semgrep (OWASP Top 10, non-blocking in S3)
-        run: semgrep --config=p/owasp-top-ten --error app/ || true
+        run: semgrep --config=p/owasp-top-ten --error app/
 
       - name: Alembic migrate
         run: alembic upgrade head
@@ -69,6 +69,15 @@ jobs:
 
       - name: Pytest
         run: pytest -v
+
+      - name: Verify test count
+        run: |
+          COUNT=$(pytest --collect-only -q 2>/dev/null | tail -1 | grep -oE '[0-9]+' | head -1)
+          echo "collected: $COUNT"
+          if [ "$COUNT" -lt 39 ]; then
+            echo "Expected at least 39 tests, got $COUNT"
+            exit 1
+          fi
 
       - name: Uvicorn log on failure
         if: failure()
