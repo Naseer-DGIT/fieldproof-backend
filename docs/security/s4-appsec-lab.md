@@ -27,3 +27,20 @@ The `q` parameter was interpolated into a raw SQL string:
 ```python
 sql = f"SELECT id, email, role FROM users WHERE email LIKE '%{q}%' LIMIT 500"
 rows = db.execute(text(sql)).fetchall()
+
+---
+
+# Lab 4 — Insecure Deserialization (pickle)
+
+- **Class:** CWE-502
+- **OWASP Top 10:2021:** A08 Software and Data Integrity Failures
+- **Location:** `app/lab/pickle_load.py`, `load_pickle`
+- **Endpoint:** `POST /api/v1/lab/pickle/load`
+- **Status:** Fixed
+
+## Root cause
+
+The endpoint accepted base64-encoded bytes and called `pickle.loads`:
+
+```python
+obj = pickle.loads(raw)
