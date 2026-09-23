@@ -47,7 +47,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest semgrep
 
-      - name: Semgrep (OWASP Top 10, non-blocking in S3)
+      - name: Semgrep (OWASP Top 10, blocking)
         run: semgrep --config=p/owasp-top-ten --error app/
 
       - name: Alembic migrate

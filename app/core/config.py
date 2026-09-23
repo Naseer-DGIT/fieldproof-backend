@@ -13,6 +13,10 @@ class Settings:
     def is_prod(self) -> bool:
         return self.environment == "prod"
 
+    @property
+    def is_lab(self) -> bool:
+        return self.environment == "lab"
+
 
 def _load() -> Settings:
     env = os.getenv("ENVIRONMENT", "dev")

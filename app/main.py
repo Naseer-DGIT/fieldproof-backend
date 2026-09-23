@@ -7,6 +7,7 @@ from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.devices import router as devices_router
 from app.core.config import settings
+from app.core.config import settings as _settings
 from app.services.audit import record_denial
 
 app = FastAPI(
@@ -47,6 +48,23 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(devices_router, prefix="/api/v1")
 app.include_router(attendance_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
+
+if _settings.is_lab:
+    from app.lab.bola import router as lab_bola_router
+    from app.lab.file_read import router as lab_file_read_router
+    from app.lab.mass_assign import router as lab_mass_assign_router
+    from app.lab.pickle_load import router as lab_pickle_router
+    from app.lab.sqli import router as lab_sqli_router
+    from app.lab.ssrf import router as lab_ssrf_router
+    from app.lab.xxe import router as lab_xxe_router
+
+    app.include_router(lab_sqli_router, prefix="/api/v1")
+    app.include_router(lab_bola_router, prefix="/api/v1")
+    app.include_router(lab_xxe_router, prefix="/api/v1")
+    app.include_router(lab_pickle_router, prefix="/api/v1")
+    app.include_router(lab_ssrf_router, prefix="/api/v1")
+    app.include_router(lab_mass_assign_router, prefix="/api/v1")
+    app.include_router(lab_file_read_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["meta"])
