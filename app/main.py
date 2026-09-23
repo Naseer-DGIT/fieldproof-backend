@@ -53,12 +53,14 @@ if _settings.is_lab:
     from app.lab.bola import router as lab_bola_router
     from app.lab.pickle_load import router as lab_pickle_router
     from app.lab.sqli import router as lab_sqli_router
+    from app.lab.ssrf import router as lab_ssrf_router
     from app.lab.xxe import router as lab_xxe_router
 
     app.include_router(lab_sqli_router, prefix="/api/v1")
     app.include_router(lab_bola_router, prefix="/api/v1")
     app.include_router(lab_xxe_router, prefix="/api/v1")
     app.include_router(lab_pickle_router, prefix="/api/v1")
+    app.include_router(lab_ssrf_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["meta"])

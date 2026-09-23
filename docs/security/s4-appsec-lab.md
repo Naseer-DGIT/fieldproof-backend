@@ -44,3 +44,21 @@ The endpoint accepted base64-encoded bytes and called `pickle.loads`:
 
 ```python
 obj = pickle.loads(raw)
+
+---
+
+# Lab 5 — Server-Side Request Forgery (SSRF)
+
+- **Class:** CWE-918
+- **OWASP API Top 10:2023:** API7 SSRF
+- **Location:** `app/lab/ssrf.py`, `fetch_url`
+- **Endpoint:** `GET /api/v1/lab/ssrf/fetch?url=...`
+- **Status:** Fixed
+
+## Root cause
+
+The endpoint passed the caller's `url` directly to an HTTP client:
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await client.get(url)
