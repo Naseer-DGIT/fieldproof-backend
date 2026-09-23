@@ -51,6 +51,7 @@ app.include_router(audit_router, prefix="/api/v1")
 
 if _settings.is_lab:
     from app.lab.bola import router as lab_bola_router
+    from app.lab.file_read import router as lab_file_read_router
     from app.lab.mass_assign import router as lab_mass_assign_router
     from app.lab.pickle_load import router as lab_pickle_router
     from app.lab.sqli import router as lab_sqli_router
@@ -63,6 +64,7 @@ if _settings.is_lab:
     app.include_router(lab_pickle_router, prefix="/api/v1")
     app.include_router(lab_ssrf_router, prefix="/api/v1")
     app.include_router(lab_mass_assign_router, prefix="/api/v1")
+    app.include_router(lab_file_read_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["meta"])

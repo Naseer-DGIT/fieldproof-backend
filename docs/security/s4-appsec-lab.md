@@ -82,3 +82,41 @@ every supplied field onto the model:
 updates = body.model_dump(exclude_unset=True)
 for field, value in updates.items():
     setattr(user, field, value)
+
+---
+
+# Lab 7 — Path Traversal
+
+- **Class:** CWE-22
+- **OWASP Top 10:2021:** A01 Broken Access Control
+- **Location:** `app/lab/file_read.py`, `read_file`
+- **Endpoint:** `GET /api/v1/lab/files/read?path=...`
+- **Status:** Fixed
+
+## Root cause
+
+The endpoint joined the caller's `path` onto a base directory and read
+the result:
+
+```python
+candidate = BASE_DIR / path
+content = candidate.read_text()
+
+---
+
+# Lab 7 — Path Traversal
+
+- **Class:** CWE-22
+- **OWASP Top 10:2021:** A01 Broken Access Control
+- **Location:** `app/lab/file_read.py`, `read_file`
+- **Endpoint:** `GET /api/v1/lab/files/read?path=...`
+- **Status:** Fixed
+
+## Root cause
+
+The endpoint joined the caller's `path` onto a base directory and read
+the result:
+
+```python
+candidate = BASE_DIR / path
+content = candidate.read_text()
