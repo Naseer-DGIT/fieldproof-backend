@@ -69,3 +69,30 @@ event = (
     .filter_by(event_id=id, user_id=user.id)
     .first()
 )
+
+---
+
+## Day 9 — CI verification
+
+- Workflow: `.github/workflows/ci.yml`
+- Trigger: every push to `sprint/s4-appsec`
+- Latest run: success
+- Semgrep on `app/lab/`: 152 rules, 8 files, 0 findings
+- Collected test count: 58 (lab tests collected but skipped in CI)
+- Test count guard: floor 58
+- Lab tests: not run in CI. They require `ENVIRONMENT=lab` and
+  `RUN_LAB_TESTS=1`, and they exercise deliberately vulnerable code.
+- Production surface: no production module imports from `app.lab`.
+  The lab router is mounted only when `settings.is_lab` is true.
+
+### Decision — lab tests do not gate CI
+
+Running the lab tests in CI would require:
+- Starting the server with `ENVIRONMENT=lab`
+- Setting `RUN_LAB_TESTS=1`
+- Accepting that a regression in a lab module (not part of the
+  product) would block a production merge
+
+None of those trade-offs are worth it in S4. If lab tests are ever
+wanted in CI, they get their own job with its own trigger, not the
+production gate.
