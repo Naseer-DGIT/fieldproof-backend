@@ -62,3 +62,23 @@ The endpoint passed the caller's `url` directly to an HTTP client:
 ```python
 async with httpx.AsyncClient() as client:
     response = await client.get(url)
+
+---
+
+# Lab 6 — Mass Assignment / Property Authorization
+
+- **Class:** CWE-915
+- **OWASP API Top 10:2023:** API3 Broken Object Property Level Authorization
+- **Location:** `app/lab/mass_assign.py`, `update_profile`
+- **Endpoint:** `PATCH /api/v1/lab/profile/update`
+- **Status:** Fixed
+
+## Root cause
+
+The endpoint accepted a full `User` shape from the client and copied
+every supplied field onto the model:
+
+```python
+updates = body.model_dump(exclude_unset=True)
+for field, value in updates.items():
+    setattr(user, field, value)
