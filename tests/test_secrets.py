@@ -73,7 +73,11 @@ def _mock_client_returning(body: dict):
 
 
 def test_secrets_manager_parses_json():
-    body = {"jwt_secret": "s-jwt", "database_password": "s-db"}
+    body = {
+        "jwt_secret": "s-jwt",
+        "database_password": "s-db",
+        "backup_passphrase": "s-backup",
+    }
     client = _mock_client_returning(body)
     with patch("app.core.secrets.boto3.client", return_value=client):
         s = secrets_mod.load_secrets("staging")
@@ -82,7 +86,11 @@ def test_secrets_manager_parses_json():
 
 
 def test_secrets_manager_prod_uses_same_path():
-    body = {"jwt_secret": "p-jwt", "database_password": "p-db"}
+    body = {
+        "jwt_secret": "p-jwt",
+        "database_password": "p-db",
+        "backup_passphrase": "p-backup",
+    }
     client = _mock_client_returning(body)
     with patch("app.core.secrets.boto3.client", return_value=client):
         s = secrets_mod.load_secrets("prod")
@@ -115,4 +123,17 @@ def test_missing_field_raises_clear_error():
     }
     with patch("app.core.secrets.boto3.client", return_value=client):
         with pytest.raises(RuntimeError, match="missing field"):
+            secrets_mod.load_secrets("staging")
+
+
+def test_missing_backup_passphrase_raises():
+    client = MagicMock()
+    client.get_secret_value.return_value = {
+        "SecretString": json.dumps({
+            "jwt_secret": "j",
+            "database_password": "d",
+        })
+    }
+    with patch("app.core.secrets.boto3.client", return_value=client):
+        with pytest.raises(RuntimeError, match="backup_passphrase"):
             secrets_mod.load_secrets("staging")

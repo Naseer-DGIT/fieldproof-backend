@@ -1,21 +1,19 @@
 """Secret loading.
 
-Dev and lab read from environment variables (loaded from .env files).
-Staging and prod read from AWS Secrets Manager.
+Dev and lab read from environment variables. Staging and prod read from
+AWS Secrets Manager.
 
-One JSON secret per environment holds the fields the app needs:
+One JSON secret per environment:
 
     {
       "jwt_secret": "...",
-      "database_password": "..."
+      "database_password": "...",
+      "backup_passphrase": "..."
     }
 
 The secret name follows the convention:
 
     fieldproof/{environment}/app
-
-LocalStack is used for local testing. Point AWS_ENDPOINT_URL at
-http://localhost:4566 and the same code path runs against it.
 """
 
 import json
@@ -31,6 +29,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 class AppSecrets:
     jwt_secret: str
     database_password: str
+    backup_passphrase: str
+
+
+_DEV_JWT_DEFAULT = "dev-only-change-in-prod-and-load-from-kms"
+_DEV_DB_DEFAULT = "devsecret"
+_DEV_BACKUP_DEFAULT = "dev-backup-passphrase-change-me"
 
 
 def _secret_name(environment: str) -> str:
@@ -38,33 +42,33 @@ def _secret_name(environment: str) -> str:
 
 
 def _from_env(environment: str) -> AppSecrets:
-    """Read secrets from environment variables.
+    """Read from environment variables.
 
-    Dev and lab get known defaults so tests and local runs work without
-    any setup. That is safe because those environments are not connected
-    to real data. Staging and prod never reach this function — they use
-    Secrets Manager.
+    Dev and lab get known defaults so a fresh clone runs pytest with no
+    setup. Staging and prod never reach this function.
     """
-    jwt = os.getenv("JWT_SECRET")
+    jwt = os.getenv("JWT_SECRET") or (_DEV_JWT_DEFAULT if environment in ("dev", "lab") else None)
     if not jwt:
-        if environment in ("dev", "lab"):
-            jwt = "dev-only-change-in-prod-and-load-from-kms"
-        else:
-            raise RuntimeError("JWT_SECRET is not set")
+        raise RuntimeError("JWT_SECRET is not set")
 
-    db_pw = os.getenv("DATABASE_PASSWORD")
+    db_pw = os.getenv("DATABASE_PASSWORD") or (_DEV_DB_DEFAULT if environment in ("dev", "lab") else None)
     if not db_pw:
-        if environment in ("dev", "lab"):
-            db_pw = "devsecret"
-        else:
-            raise RuntimeError("DATABASE_PASSWORD is not set")
+        raise RuntimeError("DATABASE_PASSWORD is not set")
 
-    return AppSecrets(jwt_secret=jwt, database_password=db_pw)
+    backup = os.getenv("BACKUP_PASSPHRASE") or (_DEV_BACKUP_DEFAULT if environment in ("dev", "lab") else None)
+    if not backup:
+        raise RuntimeError("BACKUP_PASSPHRASE is not set")
+
+    return AppSecrets(
+        jwt_secret=jwt,
+        database_password=db_pw,
+        backup_passphrase=backup,
+    )
 
 
 def _from_secrets_manager(environment: str) -> AppSecrets:
     region = os.getenv("AWS_REGION", "us-east-1")
-    endpoint = os.getenv("AWS_ENDPOINT_URL")  # LocalStack sets this
+    endpoint = os.getenv("AWS_ENDPOINT_URL")
 
     client = boto3.client(
         "secretsmanager",
@@ -90,24 +94,21 @@ def _from_secrets_manager(environment: str) -> AppSecrets:
             f"Secret {_secret_name(environment)!r} is not valid JSON"
         ) from exc
 
-    try:
-        return AppSecrets(
-            jwt_secret=data["jwt_secret"],
-            database_password=data["database_password"],
-        )
-    except KeyError as exc:
-        raise RuntimeError(
-            f"Secret {_secret_name(environment)!r} is missing field {exc}"
-        ) from exc
+    for field in ("jwt_secret", "database_password", "backup_passphrase"):
+        if field not in data:
+            raise RuntimeError(
+                f"Secret {_secret_name(environment)!r} is missing field {field!r}"
+            )
+
+    return AppSecrets(
+        jwt_secret=data["jwt_secret"],
+        database_password=data["database_password"],
+        backup_passphrase=data["backup_passphrase"],
+    )
 
 
 @lru_cache(maxsize=8)
 def load_secrets(environment: str) -> AppSecrets:
-    """Load secrets for the given environment.
-
-    Cached per process. Restart the process to pick up a rotated secret.
-    Rotation without restart is a later concern (S14).
-    """
     if environment in ("dev", "lab"):
         return _from_env(environment)
     if environment in ("staging", "prod"):
