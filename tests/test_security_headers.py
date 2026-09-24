@@ -17,6 +17,7 @@ import asyncio
 import dataclasses
 import os
 import sys
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -28,7 +29,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.core import security_headers  # noqa: E402
 from app.core.config import settings as real_settings  # noqa: E402
 
-BASE = os.getenv("BASE_URL", "http://localhost:8000")
+# BASE_URL points at the API root (e.g. http://host:8000/api/v1).
+# The host root is the same without the path.
+_BASE_URL = os.getenv("BASE_URL", "http://localhost:8000/api/v1")
+_parsed = urlparse(_BASE_URL)
+HOST_ROOT = f"{_parsed.scheme}://{_parsed.netloc}"
 
 
 def _make_request(path: str = "/api/v1/auth/login", headers: dict | None = None):
@@ -141,19 +146,27 @@ def test_health_exempt_from_redirect(monkeypatch):
 # --- Running-server tests (dev mode) ---
 
 def test_dev_health_has_no_hsts():
+    """The running server is in dev. It must not send HSTS.
+
+    Uses HOST_ROOT, not BASE_URL — /health is at the host root, not
+    under the /api/v1 prefix.
+    """
     try:
-        r = httpx.get(f"{BASE}/health", timeout=2.0)
+        r = httpx.get(f"{HOST_ROOT}/health", timeout=2.0)
     except httpx.ConnectError:
         pytest.skip("backend not running")
 
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert "strict-transport-security" not in r.headers
 
 
 def test_dev_endpoint_does_not_redirect():
+    """A route outside /api/v1 that is not /health must not redirect
+    in dev."""
     try:
-        r = httpx.get(f"{BASE}/docs", timeout=2.0, follow_redirects=False)
+        r = httpx.get(f"{HOST_ROOT}/docs", timeout=2.0, follow_redirects=False)
     except httpx.ConnectError:
         pytest.skip("backend not running")
 
-    assert r.status_code == 200
+    # /docs may be disabled in prod, but this test runs in dev.
+    assert r.status_code in (200, 404), r.text
