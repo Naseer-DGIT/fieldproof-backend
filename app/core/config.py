@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass, field
 
+from app.core.secrets import load_secrets
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -31,7 +33,13 @@ def _load() -> Settings:
         "CORS_ORIGINS",
         "http://localhost:3000,http://10.0.2.2:8000",
     ).split(",")
-    jwt_secret = os.getenv("JWT_SECRET", "dev-only-change-in-prod-and-load-from-kms")
+    secrets = load_secrets(env)
+    jwt_secret = secrets.jwt_secret
+
+    # Rebuild DATABASE_URL with the secret-derived password in
+    # staging and prod. In dev, keep whatever the env var says.
+    if env in ("staging", "prod"):
+        db_url = db_url.replace("__DB_PASSWORD__", secrets.database_password)
 
     # TLS enforcement. Enabled in staging and prod only.
     # Dev and lab stay on plain HTTP so tests and local tooling work.
