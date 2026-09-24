@@ -162,6 +162,9 @@ def restore(
             "-f", str(tmp_path),
             "-q",
         ]
+        # psql_cmd is a list, not a string; no shell is invoked. Args
+        # come from DATABASE_URL and a pre-verified file path.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
         result = subprocess.run(psql_cmd, env=env, capture_output=True)
         if result.returncode != 0:
             print(f"error: psql failed: {result.stderr.decode()}", file=sys.stderr)

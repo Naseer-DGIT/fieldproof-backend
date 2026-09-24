@@ -111,6 +111,9 @@ def backup(
     ]
 
     try:
+        # dump_cmd is a list, not a string; no shell is invoked. Args
+        # come from DATABASE_URL, a deployment-controlled env var.
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
         with subprocess.Popen(dump_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env) as pg:
             with subprocess.Popen(gpg_cmd, stdin=pg.stdout, stderr=subprocess.PIPE) as gpg:
                 assert pg.stdout is not None

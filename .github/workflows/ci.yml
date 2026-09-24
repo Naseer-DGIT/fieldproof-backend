@@ -48,7 +48,7 @@ jobs:
           pip install pytest semgrep
 
       - name: Semgrep (OWASP Top 10, blocking)
-        run: semgrep --config=p/owasp-top-ten --error app/
+        run: semgrep --config=p/owasp-top-ten --error app/ scripts/
 
       - name: Alembic migrate
         run: alembic upgrade head
@@ -74,7 +74,7 @@ jobs:
         run: |
           COUNT=$(pytest --collect-only -q 2>/dev/null | tail -1 | grep -oE '[0-9]+' | head -1)
           echo "collected: $COUNT"
-          if [ "$COUNT" -lt 39 ]; then
+          if [ "$COUNT" -lt 80 ]; then
             echo "Expected at least 39 tests, got $COUNT"
             exit 1
           fi
