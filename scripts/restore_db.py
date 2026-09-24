@@ -59,13 +59,19 @@ def _verify_sha(backup: Path) -> bool:
 def _parse_db_url(url: str) -> dict:
     scheme, rest = url.split("://", 1)
     auth, hostpart = rest.split("@", 1)
-    user, _password = auth.split(":", 1)
+    user, password = auth.split(":", 1)
     hostport, dbname = hostpart.split("/", 1)
     if ":" in hostport:
         host, port = hostport.rsplit(":", 1)
     else:
         host, port = hostport, "5432"
-    return {"user": user, "host": host, "port": port, "dbname": dbname}
+    return {
+        "user": user,
+        "password": password,
+        "host": host,
+        "port": port,
+        "dbname": dbname,
+    }
 
 
 def _ensure_target_exists(conn_str: str, target: str) -> None:
@@ -102,6 +108,10 @@ def restore(
     if not _verify_sha(backup):
         return 1
 
+    # Load secrets only to decrypt the backup. The DB credentials come
+    # from DATABASE_URL, which the caller sets to point at the target
+    # server. This lets the drill restore into a throwaway container
+    # with its own password without touching secrets.
     secrets = load_secrets(environment)
     db_url = os.getenv(
         "DATABASE_URL",
@@ -111,7 +121,10 @@ def restore(
         db_url = db_url.replace("__DB_PASSWORD__", secrets.database_password)
 
     db = _parse_db_url(db_url)
-    admin_url = f"postgresql://{db['user']}:{secrets.database_password}@{db['host']}:{db['port']}/postgres"
+    admin_url = (
+        f"postgresql://{db['user']}:{db['password']}"
+        f"@{db['host']}:{db['port']}/postgres"
+    )
 
     print(f"restoring into: {target}")
     _ensure_target_exists(admin_url, target)
@@ -138,7 +151,7 @@ def restore(
             return 1
 
         env = os.environ.copy()
-        env["PGPASSWORD"] = secrets.database_password
+        env["PGPASSWORD"] = db["password"]
 
         psql_cmd = [
             "psql",
