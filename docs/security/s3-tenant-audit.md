@@ -20,6 +20,12 @@ Every database access in `app/` and whether it enforces tenant scope.
 | POST /shifts/assignments | `shifts_for_tenant` + `shift_assignments_for_tenant` + explicit user lookup filtered by `tenant_id` | tenant from principal | yes |
 | GET /shifts/assignments | `shift_assignments_for_tenant(db, user)`; employees additionally filtered by `user_id == user.id` | tenant from principal | yes |
 
+| POST /leave/types | `leave_types_for_tenant(db, user)` for duplicate check; insert uses `tenant_id=user.tenant_id` | tenant from principal | yes |
+| GET /leave/types | `leave_types_for_tenant(db, user)` | tenant from principal | yes |
+| POST /leave/requests | `leave_types_for_tenant(db, user)`; insert uses `tenant_id=user.tenant_id` | tenant from principal | yes |
+| GET /leave/requests | `leave_requests_for_tenant(db, user)`; employees additionally filtered by `user_id == user.id` | tenant from principal | yes |
+| POST /leave/requests/{request_id}/decision | `leave_requests_for_tenant(db, user)` | tenant from principal | yes |
+| POST /leave/requests/{request_id}/cancel | `leave_requests_for_tenant(db, user)` | tenant from principal | yes |
 ## Rules
 
 1. `tenant_id` in a request body or query parameter is never trusted.
