@@ -1,4 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -8,9 +11,11 @@ from app.api.auth import router as auth_router
 from app.api.devices import router as devices_router
 from app.core.config import settings
 from app.core.config import settings as _settings
+from app.core.limiter import limiter
 from app.core.security_headers import (
     HstsHeaderMiddleware,
     HttpsRedirectMiddleware,
+    SecurityHeadersMiddleware,
 )
 from app.services.audit import record_denial
 
@@ -33,6 +38,10 @@ app.add_middleware(
 # last runs first on the request path and last on the response path,
 # so HSTS is added before Redirect sees the request and after Redirect
 # emits the response. That way a 307 redirect also carries HSTS.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(HstsHeaderMiddleware)
 app.add_middleware(HttpsRedirectMiddleware)
 

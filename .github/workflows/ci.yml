@@ -5,6 +5,9 @@ on:
     branches: [main, develop, 'sprint/**']
   pull_request:
     branches: [main, develop]
+  schedule:
+    # Nightly at 03:00 UTC
+    - cron: '0 3 * * *'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -44,8 +47,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest semgrep
+          pip install --retries 10 --timeout 60 -r requirements.txt
+          pip install --retries 10 --timeout 60 pytest semgrep
 
       - name: Semgrep (OWASP Top 10, blocking)
         run: semgrep --config=p/owasp-top-ten --error app/ scripts/
@@ -74,7 +77,7 @@ jobs:
         run: |
           COUNT=$(pytest --collect-only -q 2>/dev/null | tail -1 | grep -oE '[0-9]+' | head -1)
           echo "collected: $COUNT"
-          if [ "$COUNT" -lt 80 ]; then
+          if [ "$COUNT" -lt 88 ]; then
             echo "Expected at least 39 tests, got $COUNT"
             exit 1
           fi
@@ -82,3 +85,129 @@ jobs:
       - name: Uvicorn log on failure
         if: failure()
         run: tail -80 /tmp/uvicorn.log || true
+
+  zap-api:
+    name: zap · authenticated api scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'run-zap')
+      || github.event_name == 'schedule'
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: devsecret
+          POSTGRES_DB: fieldproof
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:devsecret@localhost:5432/fieldproof
+      JWT_SECRET: ci-only-secret-not-for-production
+      ENVIRONMENT: lab
+      LOGIN_LIMIT: 1000/minute
+      EVENTS_LIMIT: 1000/minute
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --retries 10 --timeout 60 -r requirements.txt
+          pip install --retries 10 --timeout 60 pytest
+
+      - name: Alembic migrate
+        run: alembic upgrade head
+
+      - name: Seed a test user
+        run: python seed_dev_user.py
+
+      - name: Start API
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/uvicorn.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health > /dev/null; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"
+          tail -40 /tmp/uvicorn.log
+          exit 1
+
+      - name: Get token
+        id: auth
+        run: |
+          TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"test@example.com","password":"Test1234!"}' \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Save OpenAPI spec
+        run: |
+          mkdir -p /tmp/zap
+          curl -s http://127.0.0.1:8000/openapi.json > /tmp/zap/openapi.json
+          python3 -c "import json; d=json.load(open('/tmp/zap/openapi.json')); print(len(d['paths']), 'paths')"
+
+      - name: ZAP authenticated scan
+        run: |
+          cat > /tmp/zap/zap-config.prop <<EOF
+          replacer.full_list(0).description=BearerAuth
+          replacer.full_list(0).enabled=true
+          replacer.full_list(0).matchtype=REQ_HEADER
+          replacer.full_list(0).matchstr=Authorization
+          replacer.full_list(0).replacement=Bearer ${{ steps.auth.outputs.token }}
+          EOF
+
+          docker run --rm \
+            --network host \
+            -v /tmp/zap:/zap/wrk:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py \
+            -t http://127.0.0.1:8000/openapi.json \
+            -f openapi \
+            -r zap-api.html \
+            -J zap-api.json \
+            -m 5 \
+            -z "-configfile /zap/wrk/zap-config.prop"
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-api-report
+          path: |
+            /tmp/zap/zap-api.html
+            /tmp/zap/zap-api.json
+
+      - name: Fail on high-risk alerts
+        run: |
+          python3 - <<'PYEOF'
+          import json, sys
+          try:
+              d = json.load(open("/tmp/zap/zap-api.json"))
+          except FileNotFoundError:
+              print("no report — ZAP may have failed")
+              sys.exit(1)
+          alerts = d.get("site", [{}])[0].get("alerts", [])
+          high = [a for a in alerts if a.get("riskcode") in ("3", "4")]
+          for a in high:
+              print(f"HIGH: {a.get('alert')} — {a.get('riskdesc')}")
+          if high:
+              print(f"FAIL: {len(high)} high-risk alerts")
+              sys.exit(1)
+          print(f"OK: {len(alerts)} alerts, no high-risk")
+          PYEOF
