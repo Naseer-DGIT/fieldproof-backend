@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
+from app.core.limiter import LOGIN_LIMIT, limiter
 from app.core.security import (
     ACCESS_TOKEN_TTL,
     create_access_token,
@@ -15,7 +16,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@limiter.limit(LOGIN_LIMIT)
+def login(
+    request: Request,
+    body: LoginRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
     user = db.query(User).filter(User.email == body.email).first()
     if user is None or not user.is_active:
         # Same message for both cases — do not leak which emails exist.

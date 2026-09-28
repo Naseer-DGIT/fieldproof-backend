@@ -16,11 +16,12 @@ distinguish a retryable error from a rejected event.
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.limiter import EVENTS_LIMIT, limiter
 from app.core.not_found import (
     get_own_event_or_404,
     get_team_event_or_404,
@@ -60,7 +61,9 @@ def _active_device(db: Session, user: User) -> Device:
     response_model=AttendanceEventOut,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(EVENTS_LIMIT)
 def post_event(
+    request: Request,
     body: AttendanceEventIn,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
