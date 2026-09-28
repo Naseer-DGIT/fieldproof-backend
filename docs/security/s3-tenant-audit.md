@@ -131,3 +131,19 @@ is no tenant filter to audit.
 `ALLOWED_UNGATED`. Any change that makes this endpoint return row
 contents must remove the allowlist entry and add a row to the table
 above.
+
+## S7 Day 1 — shift and leave tables
+
+New tables, all tenant-scoped:
+
+| Table | Tenant column | Helper |
+|-------|--------------|--------|
+| `shifts` | `tenant_id` | `shifts_for_tenant` |
+| `shift_assignments` | `tenant_id` | `shift_assignments_for_tenant`, `shift_assignments_for_self` |
+| `leave_types` | `tenant_id` | `leave_types_for_tenant` |
+| `leave_requests` | `tenant_id` | `leave_requests_for_tenant`, `leave_requests_for_self` |
+| `lop_records` | `tenant_id` | `lop_records_for_tenant`, `lop_records_for_self` |
+
+Every table has `tenant_id NOT NULL` with `ondelete="CASCADE"` from
+`tenants`. Every helper filters on `user.tenant_id`. No endpoint reads
+these tables yet; the helpers are ready for S7 Day 2+.

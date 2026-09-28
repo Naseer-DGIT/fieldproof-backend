@@ -94,3 +94,19 @@ conditions the `include_router` calls on `_settings.is_lab`.
 4. Write a test that proves the boundary in both directions (allowed
    and denied).
 5. `tests/test_endpoint_hygiene.py` will fail if step 1 is skipped.
+
+---
+
+## S7 — Workforce Analytics (in progress)
+
+No endpoints yet. Tables added on S7 Day 1:
+
+- `shifts`
+- `shift_assignments`
+- `leave_types`
+- `leave_requests`
+- `lop_records`
+
+Rows will be added here as endpoints are created. The
+`tests/test_endpoint_hygiene.py` check will fail if a new route is
+added without an entry in the audit table.

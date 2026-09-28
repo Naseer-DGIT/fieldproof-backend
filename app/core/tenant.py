@@ -77,3 +77,94 @@ def events_for_team(db: Session, user: User) -> Query:
             User.team_id == user.team_id,
         )
     )
+
+
+# --------------------------------------------------------------------------- #
+# S7 — shift and leave helpers
+# --------------------------------------------------------------------------- #
+
+def shifts_for_tenant(db: Session, user: User) -> Query:
+    """All active shifts in the caller's tenant."""
+    from app.models import Shift
+    return (
+        db.query(Shift)
+        .filter(
+            Shift.tenant_id == user.tenant_id,
+            Shift.is_active.is_(True),
+        )
+    )
+
+
+def shift_assignments_for_tenant(db: Session, user: User) -> Query:
+    """All shift assignments in the caller's tenant."""
+    from app.models import ShiftAssignment
+    return (
+        db.query(ShiftAssignment)
+        .filter(ShiftAssignment.tenant_id == user.tenant_id)
+    )
+
+
+def shift_assignments_for_self(db: Session, user: User) -> Query:
+    """Shift assignments for the caller only."""
+    from app.models import ShiftAssignment
+    return (
+        db.query(ShiftAssignment)
+        .filter(
+            ShiftAssignment.tenant_id == user.tenant_id,
+            ShiftAssignment.user_id == user.id,
+        )
+    )
+
+
+def leave_types_for_tenant(db: Session, user: User) -> Query:
+    """Active leave types in the caller's tenant."""
+    from app.models import LeaveType
+    return (
+        db.query(LeaveType)
+        .filter(
+            LeaveType.tenant_id == user.tenant_id,
+            LeaveType.is_active.is_(True),
+        )
+    )
+
+
+def leave_requests_for_tenant(db: Session, user: User) -> Query:
+    """All leave requests in the caller's tenant."""
+    from app.models import LeaveRequest
+    return (
+        db.query(LeaveRequest)
+        .filter(LeaveRequest.tenant_id == user.tenant_id)
+    )
+
+
+def leave_requests_for_self(db: Session, user: User) -> Query:
+    """Leave requests for the caller only."""
+    from app.models import LeaveRequest
+    return (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.tenant_id == user.tenant_id,
+            LeaveRequest.user_id == user.id,
+        )
+    )
+
+
+def lop_records_for_tenant(db: Session, user: User) -> Query:
+    """All LOP records in the caller's tenant."""
+    from app.models import LOPRecord
+    return (
+        db.query(LOPRecord)
+        .filter(LOPRecord.tenant_id == user.tenant_id)
+    )
+
+
+def lop_records_for_self(db: Session, user: User) -> Query:
+    """LOP records for the caller only."""
+    from app.models import LOPRecord
+    return (
+        db.query(LOPRecord)
+        .filter(
+            LOPRecord.tenant_id == user.tenant_id,
+            LOPRecord.user_id == user.id,
+        )
+    )
