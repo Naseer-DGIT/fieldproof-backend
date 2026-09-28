@@ -9,3 +9,11 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .env.lab
+
+# Environment files — never commit
+.env
+.env.dev
+.env.lab
+.env.staging
+.env.prod
+.env.*.local
