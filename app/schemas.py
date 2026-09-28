@@ -129,3 +129,56 @@ class ShiftPolicyResult(BaseModel):
     minutes_late: int
     minutes_early_leave: int
     worked_minutes: int
+
+
+# --------------------------------------------------------------------------- #
+# S7 — leave schemas
+# --------------------------------------------------------------------------- #
+
+class LeaveTypeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    is_paid: bool = True
+    annual_entitlement_days: int | None = Field(default=None, ge=0, le=365)
+
+
+class LeaveTypeResponse(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    is_paid: bool
+    annual_entitlement_days: int | None
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class LeaveRequestCreate(BaseModel):
+    leave_type_id: int
+    start_date: date
+    end_date: date
+    days: float = Field(gt=0, le=365)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class LeaveRequestDecision(BaseModel):
+    decision: str = Field(pattern=r"^(approved|rejected)$")
+    note: str | None = Field(default=None, max_length=500)
+
+
+class LeaveRequestResponse(BaseModel):
+    id: int
+    tenant_id: int
+    user_id: int
+    leave_type_id: int
+    start_date: date
+    end_date: date
+    days: float
+    reason: str | None
+    status: str
+    decided_by: int | None
+    decided_at: datetime | None
+    decision_note: str | None
+
+    class Config:
+        from_attributes = True
