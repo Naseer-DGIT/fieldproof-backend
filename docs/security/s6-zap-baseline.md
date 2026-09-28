@@ -18,3 +18,8 @@
 ## Baseline report
 
 Full report: `zap-baseline.html` (regenerate with the command in the runbook).
+## Summary
+
+ZAP baseline ran against the lab-mode backend on 2026-09-28.
+<N> alerts total: <X> medium, <Y> low, <Z> informational.
+No high-risk findings. Findings below are fixed in S6 Day 2.
