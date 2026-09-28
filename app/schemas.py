@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -68,3 +69,63 @@ class AttendanceEventOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --------------------------------------------------------------------------- #
+# S7 — shift and leave schemas
+# --------------------------------------------------------------------------- #
+
+class ShiftCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    start_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    grace_minutes: int = Field(ge=0, le=120, default=0)
+    break_minutes: int = Field(ge=0, le=480, default=0)
+    overtime_threshold_minutes: int = Field(ge=0, le=240, default=0)
+
+
+class ShiftResponse(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    start_time: str
+    end_time: str
+    grace_minutes: int
+    break_minutes: int
+    overtime_threshold_minutes: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class ShiftAssignmentCreate(BaseModel):
+    user_id: int
+    shift_id: int
+    start_date: date
+    end_date: date
+
+
+class ShiftAssignmentResponse(BaseModel):
+    id: int
+    tenant_id: int
+    user_id: int
+    shift_id: int
+    start_date: date
+    end_date: date
+
+    class Config:
+        from_attributes = True
+
+
+class ShiftPolicyResult(BaseModel):
+    """The result of comparing one event against a shift."""
+    user_id: int
+    for_date: date
+    shift_name: str | None
+    status: str  # "on_time" | "late" | "early_leave" | "absent" | "no_shift"
+    first_check_in: str | None
+    last_check_out: str | None
+    minutes_late: int
+    minutes_early_leave: int
+    worked_minutes: int

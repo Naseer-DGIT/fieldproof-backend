@@ -99,6 +99,16 @@ conditions the `include_router` calls on `_settings.is_lab`.
 
 ## S7 — Workforce Analytics (in progress)
 
+## S7 — Shift endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| POST | `/api/v1/shifts` | hr_ops, sys_admin | principal | tenant | `require_role` + `shifts_for_tenant` |
+| GET | `/api/v1/shifts` | any | principal | tenant | `shifts_for_tenant` |
+| POST | `/api/v1/shifts/assignments` | supervisor, hr_ops, sys_admin | principal | tenant | `require_role` + overlap check |
+| GET | `/api/v1/shifts/assignments` | any | principal | self (employee) / tenant (supervisor+) | `shift_assignments_for_tenant` + role filter |
+
+
 No endpoints yet. Tables added on S7 Day 1:
 
 - `shifts`

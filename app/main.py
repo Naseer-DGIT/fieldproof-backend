@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.api.attendance import router as attendance_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
+from app.api.shifts import router as shifts_router
 from app.api.devices import router as devices_router
 from app.core.config import settings
 from app.core.config import settings as _settings
@@ -67,6 +68,7 @@ async def audit_http_exception_handler(
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(devices_router, prefix="/api/v1")
 app.include_router(attendance_router, prefix="/api/v1")
+app.include_router(shifts_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 
 if _settings.is_lab:

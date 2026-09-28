@@ -15,6 +15,11 @@ Every database access in `app/` and whether it enforces tenant scope.
 | GET /attendance/team/events/{event_id} | `get_team_event_or_404(db, user, event_id)` | id + tenant + team in one query | yes |
 | GET /attendance/admin/summary | `User.tenant_id == user.tenant_id` | tenant from JWT | yes |
 
+| POST /shifts | `shifts_for_tenant(db, user)` for the duplicate-name check; insert sets `tenant_id=user.tenant_id` | tenant from principal | yes |
+| GET /shifts | `shifts_for_tenant(db, user)` | tenant from principal | yes |
+| POST /shifts/assignments | `shifts_for_tenant` + `shift_assignments_for_tenant` + explicit user lookup filtered by `tenant_id` | tenant from principal | yes |
+| GET /shifts/assignments | `shift_assignments_for_tenant(db, user)`; employees additionally filtered by `user_id == user.id` | tenant from principal | yes |
+
 ## Rules
 
 1. `tenant_id` in a request body or query parameter is never trusted.
