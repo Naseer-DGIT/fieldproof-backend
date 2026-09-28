@@ -114,7 +114,7 @@ No blocking findings. All S6 artifacts meet the sprint's scope.
 
 | Check | Result |
 |-------|--------|
-| Full suite | <PASTE> |
+| Full suite | 67 passed, 26 skipped |
 | Semgrep app/ scripts/ | 0 findings |
 | No `print` outside lab | clean |
 | No hardcoded secret | clean |
