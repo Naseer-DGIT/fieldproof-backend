@@ -120,3 +120,10 @@ No endpoints yet. Tables added on S7 Day 1:
 Rows will be added here as endpoints are created. The
 `tests/test_endpoint_hygiene.py` check will fail if a new route is
 added without an entry in the audit table.
+
+## S7 — LOP endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| POST | `/api/v1/lop/compute` | hr_ops, sys_admin | principal | tenant | `require_role` + `compute_for_range` |
+| GET | `/api/v1/lop` | hr_ops, sys_admin | principal | tenant | `require_role` + `lop_records_for_tenant` |
