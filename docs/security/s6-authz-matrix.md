@@ -137,3 +137,15 @@ added without an entry in the audit table.
 | GET | `/api/v1/analytics/tenant` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `tenant_rollup` |
 | GET | `/api/v1/analytics/by-shift` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `by_shift` |
 | GET | `/api/v1/analytics/by-team` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `by_team` |
+
+## S7 — Report endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| GET | `/api/v1/reports/attendance-summary` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+| GET | `/api/v1/reports/work-hours` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+| GET | `/api/v1/reports/breaks` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+| GET | `/api/v1/reports/lop` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+
+All report endpoints accept `format=json` or `format=csv`. CSV is streamed.
+Range is capped at 62 days in `_validate`.

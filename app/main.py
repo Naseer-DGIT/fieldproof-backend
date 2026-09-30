@@ -9,6 +9,7 @@ from app.api.attendance import router as attendance_router
 from app.api.audit import router as audit_router
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
+from app.api.reports import router as reports_router
 from app.api.lop import router as lop_router
 from app.api.leave import router as leave_router
 from app.api.shifts import router as shifts_router
@@ -75,6 +76,7 @@ app.include_router(shifts_router, prefix="/api/v1")
 app.include_router(leave_router, prefix="/api/v1")
 app.include_router(lop_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 
 if _settings.is_lab:

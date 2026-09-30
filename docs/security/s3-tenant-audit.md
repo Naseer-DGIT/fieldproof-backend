@@ -33,6 +33,10 @@ Every database access in `app/` and whether it enforces tenant scope.
 | GET /analytics/tenant | `tenant_rollup(db, actor.tenant_id, ...)` | tenant from principal | yes |
 | GET /analytics/by-shift | `by_shift(db, actor.tenant_id, ...)` | tenant from principal | yes |
 | GET /analytics/by-team | `by_team(db, actor.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/attendance-summary | `attendance_summary_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/work-hours | `work_hours_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/breaks | `break_report_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/lop | `lop_report_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
 ## Rules
 
 1. `tenant_id` in a request body or query parameter is never trusted.
