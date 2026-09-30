@@ -55,3 +55,21 @@ introduces a new attack surface, add a row here before the story is Ready.
 2. If none of the existing threats apply, write a new row **first**.
 3. Every mitigation must name a **test** — not "review the code".
 4. Re-review the register at the start of each sprint. Threats drift.
+
+---
+
+## Mobile-specific threats
+
+Mobile attack surface is tracked separately in the mobile repo at
+`docs/security/s8-mobile-threats.md`. IDs are prefixed `M-` to keep
+them distinct from the API threats (T-xxx).
+
+Summary as of S8 Day 1:
+
+- 18 mobile threats enumerated
+- 9 Met, 4 Partial, 4 Deferred, 1 Open (accepted), 2 N/A
+- The one open threat (M-011, Frida on a rooted device) is accepted
+  because the server rejects forged signatures; the client cannot be
+  hardened against a same-process attacker.
+
+See the mobile document for the full table.
