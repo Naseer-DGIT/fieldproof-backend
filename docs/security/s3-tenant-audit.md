@@ -28,6 +28,8 @@ Every database access in `app/` and whether it enforces tenant scope.
 | POST /leave/requests/{request_id}/cancel | `leave_requests_for_tenant(db, user)` | tenant from principal | yes |
 | POST /lop/compute | `compute_for_range(db, user.tenant_id, ...)` | tenant from principal | yes |
 | GET /lop | `lop_records_for_tenant(db, user)` | tenant from principal | yes |
+| GET /analytics/users/{user_id} | explicit `User.tenant_id == actor.tenant_id` lookup, then `summary_for_range`; supervisor limited to same team | tenant from principal | yes |
+| GET /analytics/users/{user_id} | explicit `User.tenant_id == actor.tenant_id` lookup then `summary_for_range`; supervisor limited to same team | tenant from principal | yes |
 ## Rules
 
 1. `tenant_id` in a request body or query parameter is never trusted.

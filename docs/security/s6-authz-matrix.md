@@ -127,3 +127,10 @@ added without an entry in the audit table.
 |--------|------|------|--------------|----------------|-------------|
 | POST | `/api/v1/lop/compute` | hr_ops, sys_admin | principal | tenant | `require_role` + `compute_for_range` |
 | GET | `/api/v1/lop` | hr_ops, sys_admin | principal | tenant | `require_role` + `lop_records_for_tenant` |
+
+## S7 — Analytics endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| GET | `/api/v1/analytics/me` | any | principal | self | `summary_for_range` |
+| GET | `/api/v1/analytics/users/{user_id}` | supervisor, hr_ops, security_admin, sys_admin | principal | self (supervisor: team) / tenant (hr_ops+) | explicit user lookup + team check |
