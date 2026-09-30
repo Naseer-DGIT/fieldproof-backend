@@ -15,6 +15,28 @@ Every database access in `app/` and whether it enforces tenant scope.
 | GET /attendance/team/events/{event_id} | `get_team_event_or_404(db, user, event_id)` | id + tenant + team in one query | yes |
 | GET /attendance/admin/summary | `User.tenant_id == user.tenant_id` | tenant from JWT | yes |
 
+| POST /shifts | `shifts_for_tenant(db, user)` for the duplicate-name check; insert sets `tenant_id=user.tenant_id` | tenant from principal | yes |
+| GET /shifts | `shifts_for_tenant(db, user)` | tenant from principal | yes |
+| POST /shifts/assignments | `shifts_for_tenant` + `shift_assignments_for_tenant` + explicit user lookup filtered by `tenant_id` | tenant from principal | yes |
+| GET /shifts/assignments | `shift_assignments_for_tenant(db, user)`; employees additionally filtered by `user_id == user.id` | tenant from principal | yes |
+
+| POST /leave/types | `leave_types_for_tenant(db, user)` for duplicate check; insert uses `tenant_id=user.tenant_id` | tenant from principal | yes |
+| GET /leave/types | `leave_types_for_tenant(db, user)` | tenant from principal | yes |
+| POST /leave/requests | `leave_types_for_tenant(db, user)`; insert uses `tenant_id=user.tenant_id` | tenant from principal | yes |
+| GET /leave/requests | `leave_requests_for_tenant(db, user)`; employees additionally filtered by `user_id == user.id` | tenant from principal | yes |
+| POST /leave/requests/{request_id}/decision | `leave_requests_for_tenant(db, user)` | tenant from principal | yes |
+| POST /leave/requests/{request_id}/cancel | `leave_requests_for_tenant(db, user)` | tenant from principal | yes |
+| POST /lop/compute | `compute_for_range(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /lop | `lop_records_for_tenant(db, user)` | tenant from principal | yes |
+| GET /analytics/users/{user_id} | explicit `User.tenant_id == actor.tenant_id` lookup, then `summary_for_range`; supervisor limited to same team | tenant from principal | yes |
+| GET /analytics/users/{user_id} | explicit `User.tenant_id == actor.tenant_id` lookup then `summary_for_range`; supervisor limited to same team | tenant from principal | yes |
+| GET /analytics/tenant | `tenant_rollup(db, actor.tenant_id, ...)` | tenant from principal | yes |
+| GET /analytics/by-shift | `by_shift(db, actor.tenant_id, ...)` | tenant from principal | yes |
+| GET /analytics/by-team | `by_team(db, actor.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/attendance-summary | `attendance_summary_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/work-hours | `work_hours_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/breaks | `break_report_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
+| GET /reports/lop | `lop_report_rows(db, user.tenant_id, ...)` | tenant from principal | yes |
 ## Rules
 
 1. `tenant_id` in a request body or query parameter is never trusted.
@@ -131,3 +153,19 @@ is no tenant filter to audit.
 `ALLOWED_UNGATED`. Any change that makes this endpoint return row
 contents must remove the allowlist entry and add a row to the table
 above.
+
+## S7 Day 1 — shift and leave tables
+
+New tables, all tenant-scoped:
+
+| Table | Tenant column | Helper |
+|-------|--------------|--------|
+| `shifts` | `tenant_id` | `shifts_for_tenant` |
+| `shift_assignments` | `tenant_id` | `shift_assignments_for_tenant`, `shift_assignments_for_self` |
+| `leave_types` | `tenant_id` | `leave_types_for_tenant` |
+| `leave_requests` | `tenant_id` | `leave_requests_for_tenant`, `leave_requests_for_self` |
+| `lop_records` | `tenant_id` | `lop_records_for_tenant`, `lop_records_for_self` |
+
+Every table has `tenant_id NOT NULL` with `ondelete="CASCADE"` from
+`tenants`. Every helper filters on `user.tenant_id`. No endpoint reads
+these tables yet; the helpers are ready for S7 Day 2+.

@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -68,3 +69,160 @@ class AttendanceEventOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --------------------------------------------------------------------------- #
+# S7 — shift and leave schemas
+# --------------------------------------------------------------------------- #
+
+class ShiftCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    start_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    grace_minutes: int = Field(ge=0, le=120, default=0)
+    break_minutes: int = Field(ge=0, le=480, default=0)
+    overtime_threshold_minutes: int = Field(ge=0, le=240, default=0)
+
+
+class ShiftResponse(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    start_time: str
+    end_time: str
+    grace_minutes: int
+    break_minutes: int
+    overtime_threshold_minutes: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class ShiftAssignmentCreate(BaseModel):
+    user_id: int
+    shift_id: int
+    start_date: date
+    end_date: date
+
+
+class ShiftAssignmentResponse(BaseModel):
+    id: int
+    tenant_id: int
+    user_id: int
+    shift_id: int
+    start_date: date
+    end_date: date
+
+    class Config:
+        from_attributes = True
+
+
+class ShiftPolicyResult(BaseModel):
+    """The result of comparing one event against a shift."""
+    user_id: int
+    for_date: date
+    shift_name: str | None
+    status: str  # "on_time" | "late" | "early_leave" | "absent" | "no_shift"
+    first_check_in: str | None
+    last_check_out: str | None
+    minutes_late: int
+    minutes_early_leave: int
+    worked_minutes: int
+
+
+# --------------------------------------------------------------------------- #
+# S7 — leave schemas
+# --------------------------------------------------------------------------- #
+
+class LeaveTypeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    is_paid: bool = True
+    annual_entitlement_days: int | None = Field(default=None, ge=0, le=365)
+
+
+class LeaveTypeResponse(BaseModel):
+    id: int
+    tenant_id: int
+    name: str
+    is_paid: bool
+    annual_entitlement_days: int | None
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class LeaveRequestCreate(BaseModel):
+    leave_type_id: int
+    start_date: date
+    end_date: date
+    days: float = Field(gt=0, le=365)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class LeaveRequestDecision(BaseModel):
+    decision: str = Field(pattern=r"^(approved|rejected)$")
+    note: str | None = Field(default=None, max_length=500)
+
+
+class LeaveRequestResponse(BaseModel):
+    id: int
+    tenant_id: int
+    user_id: int
+    leave_type_id: int
+    start_date: date
+    end_date: date
+    days: float
+    reason: str | None
+    status: str
+    decided_by: int | None
+    decided_at: datetime | None
+    decision_note: str | None
+
+    class Config:
+        from_attributes = True
+
+
+# --------------------------------------------------------------------------- #
+# S7 Day 6 — tenant-wide analytics schemas
+# --------------------------------------------------------------------------- #
+
+class TenantRollup(BaseModel):
+    user_count: int
+    days_with_shift: int
+    days_present: int
+    days_absent: int
+    days_on_leave: int
+    days_late: int
+    days_early_leave: int
+    days_on_time: int
+    worked_minutes: int
+    scheduled_minutes: int
+    overtime_minutes: int
+    minutes_late: int
+    break_count: int
+    total_break_minutes: int
+    attendance_rate: float
+
+
+class ShiftBreakdown(BaseModel):
+    shift_name: str
+    days_with_shift: int
+    days_present: int
+    days_absent: int
+    days_late: int
+    worked_minutes: int
+    scheduled_minutes: int
+    overtime_minutes: int
+
+
+class TeamBreakdown(BaseModel):
+    team_id: int | None
+    user_count: int
+    days_with_shift: int
+    days_present: int
+    days_absent: int
+    days_late: int
+    worked_minutes: int
+    overtime_minutes: int

@@ -14,10 +14,12 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
     JSON,
+    Numeric,
     String,
     UniqueConstraint,
     func,
@@ -163,4 +165,148 @@ class AuthorizationEvent(Base):
         server_default=func.now(),
         nullable=False,
         index=True,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# S7 — Shift and leave models
+# --------------------------------------------------------------------------- #
+
+class Shift(Base):
+    """A shift template within a tenant.
+
+    Example: "Day", "Night", "General 9-6". A shift defines the expected
+    start and end of work, the grace window, and the break policy.
+
+    Time fields are stored as "HH:MM" strings. They are local wall-clock
+    times. The tenant's timezone is applied when comparing against
+    event timestamps.
+    """
+
+    __tablename__ = "shifts"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    name = Column(String(64), nullable=False)
+    start_time = Column(String(5), nullable=False)   # "09:00"
+    end_time = Column(String(5), nullable=False)     # "18:00"
+    # Grace period after start_time before a check-in is "late"
+    grace_minutes = Column(Integer, nullable=False, default=0)
+    # Expected unpaid break duration in minutes
+    break_minutes = Column(Integer, nullable=False, default=0)
+    # Overtime is time beyond this many minutes after end_time
+    overtime_threshold_minutes = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_shifts_tenant_name"),
+    )
+
+
+class ShiftAssignment(Base):
+    """Assignment of a user to a shift for a date range.
+
+    The date range is inclusive on both ends: `start_date <= d <= end_date`.
+    A user may have at most one active shift at any given date. Overlaps
+    are rejected at insert time by the service layer.
+    """
+
+    __tablename__ = "shift_assignments"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    shift_id = Column(Integer, ForeignKey("shifts.id", ondelete="CASCADE"),
+                      nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    assigned_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                         nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LeaveType(Base):
+    """A category of leave within a tenant.
+
+    Example: "Casual", "Sick", "Earned". Each type has an optional
+    annual entitlement and a flag for whether it is paid.
+    """
+
+    __tablename__ = "leave_types"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    name = Column(String(64), nullable=False)
+    is_paid = Column(Boolean, nullable=False, default=True)
+    # Days per year. Null means no fixed entitlement.
+    annual_entitlement_days = Column(Integer, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_leave_types_tenant_name"),
+    )
+
+
+class LeaveRequest(Base):
+    """A request for leave by an employee.
+
+    Status lifecycle: pending → approved | rejected | cancelled.
+    Only the requester may cancel. Only a supervisor or HR may approve
+    or reject.
+    """
+
+    __tablename__ = "leave_requests"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    leave_type_id = Column(Integer, ForeignKey("leave_types.id", ondelete="RESTRICT"),
+                           nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    # Full days or half days. Stored as a float to allow 0.5.
+    days = Column(Numeric(5, 2), nullable=False)
+    reason = Column(String(500), nullable=True)
+    # status: pending | approved | rejected | cancelled
+    status = Column(String(16), nullable=False, default="pending", index=True)
+    decided_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                        nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    decision_note = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LOPRecord(Base):
+    """Loss of Pay record.
+
+    Generated by a monthly job that compares approved attendance against
+    the assigned shift. LOP days are unpaid and feed the payroll export.
+
+    `source` names the reason: "unapproved_absence", "late_arrival",
+    "insufficient_hours", "manual".
+    """
+
+    __tablename__ = "lop_records"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    for_date = Column(Date, nullable=False, index=True)
+    days = Column(Numeric(5, 2), nullable=False)
+    source = Column(String(32), nullable=False)
+    note = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "for_date", "source", name="uq_lop_user_date_source"),
     )

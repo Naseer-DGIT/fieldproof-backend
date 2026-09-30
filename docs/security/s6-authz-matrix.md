@@ -94,3 +94,58 @@ conditions the `include_router` calls on `_settings.is_lab`.
 4. Write a test that proves the boundary in both directions (allowed
    and denied).
 5. `tests/test_endpoint_hygiene.py` will fail if step 1 is skipped.
+
+---
+
+## S7 — Workforce Analytics (in progress)
+
+## S7 — Shift endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| POST | `/api/v1/shifts` | hr_ops, sys_admin | principal | tenant | `require_role` + `shifts_for_tenant` |
+| GET | `/api/v1/shifts` | any | principal | tenant | `shifts_for_tenant` |
+| POST | `/api/v1/shifts/assignments` | supervisor, hr_ops, sys_admin | principal | tenant | `require_role` + overlap check |
+| GET | `/api/v1/shifts/assignments` | any | principal | self (employee) / tenant (supervisor+) | `shift_assignments_for_tenant` + role filter |
+
+
+No endpoints yet. Tables added on S7 Day 1:
+
+- `shifts`
+- `shift_assignments`
+- `leave_types`
+- `leave_requests`
+- `lop_records`
+
+Rows will be added here as endpoints are created. The
+`tests/test_endpoint_hygiene.py` check will fail if a new route is
+added without an entry in the audit table.
+
+## S7 — LOP endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| POST | `/api/v1/lop/compute` | hr_ops, sys_admin | principal | tenant | `require_role` + `compute_for_range` |
+| GET | `/api/v1/lop` | hr_ops, sys_admin | principal | tenant | `require_role` + `lop_records_for_tenant` |
+
+## S7 — Analytics endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| GET | `/api/v1/analytics/me` | any | principal | self | `summary_for_range` |
+| GET | `/api/v1/analytics/users/{user_id}` | supervisor, hr_ops, security_admin, sys_admin | principal | self (supervisor: team) / tenant (hr_ops+) | explicit user lookup + team check |
+| GET | `/api/v1/analytics/tenant` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `tenant_rollup` |
+| GET | `/api/v1/analytics/by-shift` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `by_shift` |
+| GET | `/api/v1/analytics/by-team` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `by_team` |
+
+## S7 — Report endpoints
+
+| Method | Path | Auth | Tenant scope | Resource scope | Enforcement |
+|--------|------|------|--------------|----------------|-------------|
+| GET | `/api/v1/reports/attendance-summary` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+| GET | `/api/v1/reports/work-hours` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+| GET | `/api/v1/reports/breaks` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+| GET | `/api/v1/reports/lop` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` |
+
+All report endpoints accept `format=json` or `format=csv`. CSV is streamed.
+Range is capped at 62 days in `_validate`.
