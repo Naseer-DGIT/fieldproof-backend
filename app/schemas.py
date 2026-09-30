@@ -182,3 +182,47 @@ class LeaveRequestResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --------------------------------------------------------------------------- #
+# S7 Day 6 — tenant-wide analytics schemas
+# --------------------------------------------------------------------------- #
+
+class TenantRollup(BaseModel):
+    user_count: int
+    days_with_shift: int
+    days_present: int
+    days_absent: int
+    days_on_leave: int
+    days_late: int
+    days_early_leave: int
+    days_on_time: int
+    worked_minutes: int
+    scheduled_minutes: int
+    overtime_minutes: int
+    minutes_late: int
+    break_count: int
+    total_break_minutes: int
+    attendance_rate: float
+
+
+class ShiftBreakdown(BaseModel):
+    shift_name: str
+    days_with_shift: int
+    days_present: int
+    days_absent: int
+    days_late: int
+    worked_minutes: int
+    scheduled_minutes: int
+    overtime_minutes: int
+
+
+class TeamBreakdown(BaseModel):
+    team_id: int | None
+    user_count: int
+    days_with_shift: int
+    days_present: int
+    days_absent: int
+    days_late: int
+    worked_minutes: int
+    overtime_minutes: int

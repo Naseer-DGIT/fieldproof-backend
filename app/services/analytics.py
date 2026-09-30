@@ -201,3 +201,168 @@ def summary_for_range(
         if row is not None:
             out.append(row)
     return out
+
+
+# --------------------------------------------------------------------------- #
+# S7 Day 6 — tenant-wide aggregations
+# --------------------------------------------------------------------------- #
+
+def _active_users(db: Session, tenant_id: int) -> list[User]:
+    return (
+        db.query(User)
+        .filter(User.tenant_id == tenant_id, User.is_active.is_(True))
+        .all()
+    )
+
+
+def tenant_rollup(
+    db: Session,
+    tenant_id: int,
+    start: date,
+    end: date,
+) -> dict:
+    """Aggregate every user's days into one row.
+
+    `attendance_rate` = (days_present + days_on_leave) / days_with_shift.
+    A day with no shift assignment is not counted in the denominator.
+    """
+    users = _active_users(db, tenant_id)
+
+    total = {
+        "user_count": len(users),
+        "days_with_shift": 0,
+        "days_present": 0,
+        "days_absent": 0,
+        "days_on_leave": 0,
+        "days_late": 0,
+        "days_early_leave": 0,
+        "days_on_time": 0,
+        "worked_minutes": 0,
+        "scheduled_minutes": 0,
+        "overtime_minutes": 0,
+        "minutes_late": 0,
+        "break_count": 0,
+        "total_break_minutes": 0,
+    }
+
+    for user in users:
+        for row in summary_for_range(db, user, start, end):
+            total["days_with_shift"] += 1
+            total["worked_minutes"] += row["worked_minutes"]
+            total["scheduled_minutes"] += row["scheduled_minutes"]
+            total["overtime_minutes"] += row["overtime_minutes"]
+            total["minutes_late"] += row["minutes_late"]
+            total["break_count"] += row["break_count"]
+            total["total_break_minutes"] += row["total_break_minutes"]
+
+            status = row["status"]
+            if status == "absent":
+                total["days_absent"] += 1
+            elif status == "on_leave":
+                total["days_on_leave"] += 1
+            elif status in ("on_time", "late", "early_leave"):
+                total["days_present"] += 1
+                if status == "late":
+                    total["days_late"] += 1
+                elif status == "early_leave":
+                    total["days_early_leave"] += 1
+                else:
+                    total["days_on_time"] += 1
+
+    denom = total["days_with_shift"]
+    present_or_leave = total["days_present"] + total["days_on_leave"]
+    total["attendance_rate"] = round(present_or_leave / denom, 4) if denom else 0.0
+
+    return total
+
+
+def by_shift(
+    db: Session,
+    tenant_id: int,
+    start: date,
+    end: date,
+) -> list[dict]:
+    """Aggregate by shift name across the tenant."""
+    users = _active_users(db, tenant_id)
+    buckets: dict[str, dict] = {}
+
+    for user in users:
+        for row in summary_for_range(db, user, start, end):
+            name = row["shift_name"]
+            if name not in buckets:
+                buckets[name] = {
+                    "shift_name": name,
+                    "days_with_shift": 0,
+                    "days_present": 0,
+                    "days_absent": 0,
+                    "days_late": 0,
+                    "worked_minutes": 0,
+                    "scheduled_minutes": 0,
+                    "overtime_minutes": 0,
+                }
+            b = buckets[name]
+            b["days_with_shift"] += 1
+            b["worked_minutes"] += row["worked_minutes"]
+            b["scheduled_minutes"] += row["scheduled_minutes"]
+            b["overtime_minutes"] += row["overtime_minutes"]
+
+            status = row["status"]
+            if status in ("on_time", "late", "early_leave"):
+                b["days_present"] += 1
+            if status == "absent":
+                b["days_absent"] += 1
+            if status == "late":
+                b["days_late"] += 1
+
+    return sorted(buckets.values(), key=lambda x: x["shift_name"])
+
+
+def by_team(
+    db: Session,
+    tenant_id: int,
+    start: date,
+    end: date,
+) -> list[dict]:
+    """Aggregate by `team_id`.
+
+    Users with no team (`team_id is None`) are grouped under a single
+    bucket so the count is complete. The endpoint labels that bucket
+    as `unassigned`.
+    """
+    users = _active_users(db, tenant_id)
+    buckets: dict[int | None, dict] = {}
+
+    for user in users:
+        team_id = user.team_id
+        if team_id not in buckets:
+            buckets[team_id] = {
+                "team_id": team_id,
+                "user_count": 0,
+                "days_with_shift": 0,
+                "days_present": 0,
+                "days_absent": 0,
+                "days_late": 0,
+                "worked_minutes": 0,
+                "overtime_minutes": 0,
+            }
+        b = buckets[team_id]
+        b["user_count"] += 1
+
+        for row in summary_for_range(db, user, start, end):
+            b["days_with_shift"] += 1
+            b["worked_minutes"] += row["worked_minutes"]
+            b["overtime_minutes"] += row["overtime_minutes"]
+
+            status = row["status"]
+            if status in ("on_time", "late", "early_leave"):
+                b["days_present"] += 1
+            if status == "absent":
+                b["days_absent"] += 1
+            if status == "late":
+                b["days_late"] += 1
+
+    # Sort by team_id; None sorts last.
+    return sorted(
+        buckets.values(),
+        key=lambda x: (x["team_id"] is None, x["team_id"] or 0),
+    )

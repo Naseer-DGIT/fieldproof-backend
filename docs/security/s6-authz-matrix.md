@@ -134,3 +134,6 @@ added without an entry in the audit table.
 |--------|------|------|--------------|----------------|-------------|
 | GET | `/api/v1/analytics/me` | any | principal | self | `summary_for_range` |
 | GET | `/api/v1/analytics/users/{user_id}` | supervisor, hr_ops, security_admin, sys_admin | principal | self (supervisor: team) / tenant (hr_ops+) | explicit user lookup + team check |
+| GET | `/api/v1/analytics/tenant` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `tenant_rollup` |
+| GET | `/api/v1/analytics/by-shift` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `by_shift` |
+| GET | `/api/v1/analytics/by-team` | hr_ops, security_admin, sys_admin | principal | tenant | `require_role` + `by_team` |

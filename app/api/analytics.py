@@ -12,9 +12,17 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
-from app.core.rbac import ROLE_SUPERVISOR, require_min_role
+from app.core.rbac import (
+    ROLE_HR_OPS,
+    ROLE_SECURITY_ADMIN,
+    ROLE_SUPERVISOR,
+    ROLE_SYS_ADMIN,
+    require_min_role,
+    require_role,
+)
 from app.models import User
-from app.services.analytics import summary_for_range
+from app.schemas import ShiftBreakdown, TeamBreakdown, TenantRollup
+from app.services.analytics import by_shift, by_team, summary_for_range, tenant_rollup
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -114,3 +122,49 @@ def analytics_user(
         end=end,
         days=[DaySummary(**r) for r in rows],
     )
+
+# --------------------------------------------------------------------------- #
+# S7 Day 6 — tenant-wide aggregations
+# --------------------------------------------------------------------------- #
+
+@router.get("/tenant", response_model=TenantRollup)
+def analytics_tenant(
+    start: date = Query(...),
+    end: date = Query(...),
+    actor: User = Depends(require_role(ROLE_HR_OPS, ROLE_SECURITY_ADMIN, ROLE_SYS_ADMIN)),
+    db: Session = Depends(get_db),
+) -> TenantRollup:
+    """Aggregate every user in the caller's tenant.
+
+    Requires hr_ops, security_admin, or sys_admin. Supervisors use
+    `/analytics/users/{id}` for individual users.
+    """
+    _validate_range(start, end)
+    return TenantRollup(**tenant_rollup(db, actor.tenant_id, start, end))
+
+
+@router.get("/by-shift", response_model=list[ShiftBreakdown])
+def analytics_by_shift(
+    start: date = Query(...),
+    end: date = Query(...),
+    actor: User = Depends(require_role(ROLE_HR_OPS, ROLE_SECURITY_ADMIN, ROLE_SYS_ADMIN)),
+    db: Session = Depends(get_db),
+) -> list[ShiftBreakdown]:
+    """Per-shift breakdown for the caller's tenant."""
+    _validate_range(start, end)
+    return [ShiftBreakdown(**row) for row in by_shift(db, actor.tenant_id, start, end)]
+
+
+@router.get("/by-team", response_model=list[TeamBreakdown])
+def analytics_by_team(
+    start: date = Query(...),
+    end: date = Query(...),
+    actor: User = Depends(require_role(ROLE_HR_OPS, ROLE_SECURITY_ADMIN, ROLE_SYS_ADMIN)),
+    db: Session = Depends(get_db),
+) -> list[TeamBreakdown]:
+    """Per-team breakdown for the caller's tenant.
+
+    Users with no team are grouped under `team_id: null`.
+    """
+    _validate_range(start, end)
+    return [TeamBreakdown(**row) for row in by_team(db, actor.tenant_id, start, end)]
