@@ -73,3 +73,14 @@ Summary as of S8 Day 1:
   hardened against a same-process attacker.
 
 See the mobile document for the full table.
+
+### Attestation
+
+Mobile attestation signals (Play Integrity, App Attest, DeviceCheck)
+are evaluated in the mobile repo at
+`docs/security/s8-attestation.md`.
+
+Summary: attestation moves M-001 (repackaged app) and M-009 (fake
+device registration) from "no signal" to "signal exists." It does not
+block attackers. It feeds the security dashboard and the review queue.
+Wiring lands in S11.
