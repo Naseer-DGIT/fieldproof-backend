@@ -55,3 +55,43 @@ introduces a new attack surface, add a row here before the story is Ready.
 2. If none of the existing threats apply, write a new row **first**.
 3. Every mitigation must name a **test** — not "review the code".
 4. Re-review the register at the start of each sprint. Threats drift.
+
+---
+
+## Mobile-specific threats
+
+Mobile attack surface is tracked separately in the mobile repo at
+`docs/security/s8-mobile-threats.md`. IDs are prefixed `M-` to keep
+them distinct from the API threats (T-xxx).
+
+Summary as of S8 Day 1:
+
+- 18 mobile threats enumerated
+- 9 Met, 4 Partial, 4 Deferred, 1 Open (accepted), 2 N/A
+- The one open threat (M-011, Frida on a rooted device) is accepted
+  because the server rejects forged signatures; the client cannot be
+  hardened against a same-process attacker.
+
+See the mobile document for the full table.
+
+### Attestation
+
+Mobile attestation signals (Play Integrity, App Attest, DeviceCheck)
+are evaluated in the mobile repo at
+`docs/security/s8-attestation.md`.
+
+Summary: attestation moves M-001 (repackaged app) and M-009 (fake
+device registration) from "no signal" to "signal exists." It does not
+block attackers. It feeds the security dashboard and the review queue.
+Wiring lands in S11.
+
+### Root detection
+
+Root and jailbreak detection is evaluated as a risk signal, not a
+block. Document: `fieldproof-mobile/docs/security/s8-root-detection.md`.
+
+Summary: local root detection is bypassable by Magisk, Frida, and
+repackaging. It is used as an input to the security dashboard risk
+score. The real defense against a compromised client is server-side
+per-event signature verification (S2 Day 5) and the audit trail
+(S3 Day 6).
