@@ -84,3 +84,14 @@ Summary: attestation moves M-001 (repackaged app) and M-009 (fake
 device registration) from "no signal" to "signal exists." It does not
 block attackers. It feeds the security dashboard and the review queue.
 Wiring lands in S11.
+
+### Root detection
+
+Root and jailbreak detection is evaluated as a risk signal, not a
+block. Document: `fieldproof-mobile/docs/security/s8-root-detection.md`.
+
+Summary: local root detection is bypassable by Magisk, Frida, and
+repackaging. It is used as an input to the security dashboard risk
+score. The real defense against a compromised client is server-side
+per-event signature verification (S2 Day 5) and the audit trail
+(S3 Day 6).
